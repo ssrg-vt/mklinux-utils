@@ -14,11 +14,21 @@ int main(int argc, char *argv[]) {
 	int mem_fd;
 	uint64_t ramdisk_phys_addr = 0x60000000;
 	uint64_t boot_params_phys_addr = 0x13bd0;
-	void *ramdisk_base_addr;
+	uint64_t boot_params_page, boot_params_offset;
+	void *ramdisk_base_addr, *boot_params_page_base_addr;
 	struct boot_params *boot_params_base_addr;
 	uint64_t ramdisk_size, size_read; 
 	static const char filename[] = "ramdisk.img";
 	FILE *file = fopen(filename, "rb");
+
+	if (argc != 2) {
+		printf("Invalid number of arguments specified!\n");
+		return 0;
+	}
+
+	sscanf(argv[1], "%lx", &ramdisk_phys_addr);
+
+	printf("Ramdisk phys addr is 0x%lx\n", ramdisk_phys_addr);
 
 	if (!file) {
 		printf("Failed to open file containing boot args...\n");
@@ -58,7 +68,11 @@ int main(int argc, char *argv[]) {
 
 	printf("Read ramdisk into memory; setting boot params...\n");
 
-	return;
+	boot_params_page = boot_params_phys_addr & 0xfffffffffffff000ULL;
+	boot_params_offset = boot_params_phys_addr & 0xfff;
+
+	printf("boot_params_page 0x%lx, boot_params_offset 0x%lx\n", 
+			boot_params_page, boot_params_offset);
 
 	/* Open /dev/mem and mmap the boot arguments */
 	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
@@ -70,9 +84,11 @@ int main(int argc, char *argv[]) {
 
 	printf("Opened /dev/mem, fd %d\n", mem_fd);
 
-	boot_params_base_addr = (struct boot_params *) mmap(0, sizeof(struct boot_params), 
+	boot_params_page_base_addr = mmap(0, 2 * sizeof(struct boot_params), 
 					PROT_READ | PROT_WRITE, MAP_SHARED, 
-					mem_fd, boot_params_phys_addr);
+					mem_fd, boot_params_page);
+
+	boot_params_base_addr = boot_params_page_base_addr + boot_params_offset;
 
 	printf("Boot params at 0x%lx, mapped addr 0x%lx\n", boot_params_phys_addr, boot_params_base_addr);
 
