@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<mklinux_params>
+	<overall>
+		<lapic_timer>1000000</lapic_timer>
+	</overall>
+	<kernel>
+		<phys_cpu>2</phys_cpu>
+		<mem_start>0x40000000</mem_start>
+		<mem_size>0x40000000</mem_size>
+		<kernel_addr>0x40000000</kernel_addr>
+		<ramdisk_addr>0x60000000</ramdisk_addr>
+		<pci_flags>32902:28688:b</pci_flags>
+	</kernel>
+	<kernel>
+	        <phys_cpu>3</phys_cpu>
+                <mem_start>0x80000000</mem_start>
+                <mem_size>0x40000000</mem_size>
+                <kernel_addr>0x80000000</kernel_addr>
+                <ramdisk_addr>0xa0000000</ramdisk_addr>
+                <pci_flags>32902:28688:b</pci_flags>
+        </kernel>
+</mklinux_params>
