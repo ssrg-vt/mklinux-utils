@@ -9,11 +9,13 @@
 #include <fcntl.h>
 #include <asm/bootparam.h>
 
+#define __NR_get_boot_params_addr 313
+
 int main(int argc, char *argv[]) {
 
 	int mem_fd;
 	uint64_t ramdisk_phys_addr = 0x60000000;
-	uint64_t boot_params_phys_addr = 0x13bd0;
+	uint64_t boot_params_phys_addr = 0x0;
 	uint64_t boot_params_page, boot_params_offset;
 	void *ramdisk_base_addr, *boot_params_page_base_addr;
 	struct boot_params *boot_params_base_addr;
@@ -39,6 +41,7 @@ int main(int argc, char *argv[]) {
 	fseek(file, 0, SEEK_END);
 	ramdisk_size = ftell(file);
 	fseek(file, 0, SEEK_SET);
+
 
 	printf("Ramdisk size is %lu bytes\n", ramdisk_size);
 
@@ -67,6 +70,9 @@ int main(int argc, char *argv[]) {
 	close(mem_fd);
 
 	printf("Read ramdisk into memory; setting boot params...\n");
+
+	/* Need to make a syscall to figure out where the boot_params struct is */
+	boot_params_phys_addr = syscall(__NR_get_boot_params_addr);
 
 	boot_params_page = boot_params_phys_addr & 0xfffffffffffff000ULL;
 	boot_params_offset = boot_params_phys_addr & 0xfff;
