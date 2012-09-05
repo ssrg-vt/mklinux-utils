@@ -14,7 +14,14 @@ int main(int argc, char *argv[]) {
 	char boot_args[256];
 
 	static const char filename[] = "bootargs.txt";
-	FILE *file = fopen(filename, "r");
+	FILE *file;
+
+	if (argc != 2) {
+		printf("Invalid number of arguments specified!\n");
+		return 0;
+	}
+
+	file = fopen(argv[1], "r");
 
 	if (!file) {
 		printf("Failed to open file containing boot args...\n");
