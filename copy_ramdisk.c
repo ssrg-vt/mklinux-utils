@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <asm/bootparam.h>
+#include "bootparam.h"
 
 #define __NR_get_boot_params_addr 313
 
@@ -98,7 +98,11 @@ int main(int argc, char *argv[]) {
 
 	printf("Boot params at 0x%lx, mapped addr 0x%lx\n", boot_params_phys_addr, boot_params_base_addr);
 
-	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr;
+
+	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
+
+	boot_params_base_addr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
+
 	boot_params_base_addr->hdr.ramdisk_size = ramdisk_size;
 
 	printf("Boot params successfully set!\n");
