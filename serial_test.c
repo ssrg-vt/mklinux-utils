@@ -7,7 +7,7 @@
 #include <sys/io.h>
 #include <string.h>
 
-#define PORT 0x2f8   /* /dev/ttyS1 */
+#define PORT 0x3f8   /* /dev/ttyS0 */
  
 void init_serial() {
 	outb(0x00, PORT + 1);    // Disable all interrupts
@@ -31,7 +31,7 @@ void write_serial(char a) {
 
 int main(int argc, char *argv[]) {
 	
-	char test_string[] = "This is a test.\n";
+	char test_string[] = "This is a test of the serial port.\n";
 	int i;
 	
 	if (ioperm(PORT, 6, 1)) {
