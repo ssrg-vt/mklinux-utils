@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
 
 	int mem_fd;
 	void * boot_args_base_addr;
-	char boot_args[256];
+	char boot_args[2048];
 
 	static const char filename[] = "bootargs.txt";
 	FILE *file;
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("Opened /dev/mem, fd %d\n", mem_fd);
-	boot_args_base_addr = mmap(0, 0x100, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0x20000);
+	boot_args_base_addr = mmap(0, 0x800, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0x20000);
 	printf("Boot args at 0x20000, mapped addr 0x%lx\n", boot_args_base_addr);
 
 	/* Copy the boot arguments to the right place */
