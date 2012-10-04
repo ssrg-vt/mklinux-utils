@@ -100,10 +100,9 @@ int main(int argc, char *argv[]) {
 
 
 	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
-
 	boot_params_base_addr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
-
 	boot_params_base_addr->hdr.ramdisk_size = ramdisk_size;
+	boot_params_base_addr->hdr.ramdisk_magic = 0xdf;
 
 	printf("Boot params successfully set!\n");
 
