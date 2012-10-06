@@ -10,7 +10,6 @@
 
 
 /* (cache the result?) */
-
 long long numa_node_size64(int node, long long *freep)
 { 
 	size_t len = 0;
@@ -58,6 +57,81 @@ long long numa_node_size64(int node, long long *freep)
 		printf("Cannot parse sysfs meminfo (%d)", ok);
 	return size;
 }
+
+int hex_to_bin(char ch)
+{
+        if ((ch >= '0') && (ch <= '9'))
+                return ch - '0';
+        ch = tolower(ch);
+        if ((ch >= 'a') && (ch <= 'f'))
+                return ch - 'a' + 10;
+        return -1;
+}
+
+#define MAX_BITMAP_CPUS 8
+typedef struct _cpu_bitmask {
+  int cpus[MAX_BITMAP_CPUS];
+} cpu_bitmask_t;
+//ideas from linux/lib/bitmap.c __bitmap_parse (chunk oriented)
+int numa_node_cpumask(int node, cpu_bitmask_t * cpus)
+{ 
+	size_t len = 0;
+	char *line = NULL;
+	//unsigned long map[MAX_BITMAP_CPUS];
+	memset(cpus, 0, sizeof(cpu_bitmask_t));
+	char *pmap = (char*) cpus;
+	pmap += (sizeof(cpu_bitmask_t) -1);
+	
+	FILE *f; 
+	char fn[64];
+	int i;
+	int digit=0;
+
+	sprintf(fn,"/sys/devices/system/node/node%d/cpumap", node); 
+	f = fopen(fn, "r");
+	if (!f) {
+	  printf("ERROR ERROR\n");
+	 	return -1; 
+	}
+	while (getdelim(&line, &len, '\n', f) > 0) { 
+	  
+	  //printf("%d:%s*%d   %p  %d\n", len, line, strlen(line), line, sizeof(long long));
+	  
+	  for (i=0; i<len ; i++) {
+	     
+	    if (isspace(line[i]))
+	      continue;
+	    if (line[i] == ',')
+	      continue;
+	    if (line[i] == '\n' || line[i] == '\0')
+	      break;
+	    if (!isxdigit(line[i])) {
+	      printf("numa_node_cpumask error '%c' %d\n", line[i], (int)line[i]);
+	      return -1;
+	    }
+
+	    if (!(digit & 0x1)) {
+	      *pmap = (hex_to_bin(line[i]) & 0xF) << 4 ;
+
+	    }else {
+	      *pmap |= hex_to_bin(line[i]) & 0xF;
+	      pmap--;
+	    }
+	    
+	    digit++;
+	    
+	    if (pmap > ((void*)cpus + sizeof(cpu_bitmask_t)) || pmap < ((void*)cpus))
+	      goto __end;
+	  }
+	} 
+__end:
+	fclose(f); 	
+	free(line);
+
+	return digit;
+}
+
+
 
 /*
  * get the total (configured) number of cpus - both online and offline
@@ -171,12 +245,20 @@ set_present_mem(void)
 				end = -1;
 			else
 				ok++; 
-			
+		
+		end++;
 		total += (end -start);
-		amemres[im].start = start;
+		
+#define ALIGN4KB
+#ifdef ALIGN4KB
+		start &= ~0x0FFF;
+		end &= ~0x0FFF;
+#endif /* !ALIGN4KB */ 
+		
+		amemres[im].start = start; 
 		amemres[im].end = end;
 		im++;
-		printf("start %llx end %llx amount %lld B 0x%llx\n", start, end, (end -start), (end -start) +1);
+		printf("start %llx end %llx amount %lld B 0x%llx\n", start, end, (end -start), (end -start));
 	} 
 	fclose(f); 
 	free(line);
@@ -190,14 +272,184 @@ typedef struct _numa_node{
   long long start, end; //physical start and end
   long long size; // numa memory size
   memres * rstart, * rend; //pointer to start, end resource area
+  cpu_bitmask_t map; // map of the cpus
+  int cpus;
 } numa_node;
-
-
 //allocation is done in reverse order (hopefully is correct per node)
 
+//http://graphics.stanford.edu/~seander/bithacks.html
+#define CHAR_BIT 8
+#define T long long
+int bit_weight(long long v) {
+  int c;
+
+  v = v - ((v >> 1) & ~0UL/3);    
+  // r = (r & 0x3333...) + ((r >> 2) & 0x3333...);
+  v = (v & ~0UL/5) + ((v >> 2) & ~0UL/5);
+  // r = (r & 0x0f0f...) + ((r >> 4) & 0x0f0f...);
+  v = (v + (v >> 4)) & ~0UL/17;
+  // r = r % 255;
+  c = (v * (~0UL/255)) >> ((sizeof(v) - 1) * CHAR_BIT);
+  
+  return c;
+}
+
+int bit_weight_bitmask (cpu_bitmask_t * ptr) {
+  int c = 0, i;
+  long long * aptr = (long long *) ptr;
+  
+  for (i = 0 ; i < (sizeof(cpu_bitmask_t) / sizeof(long long)); i++)
+    c += bit_weight( *(aptr++) );
+  
+  return c;
+}
+int ffsll_bitmask( cpu_bitmask_t * ptr) {
+  int c = 0, d =0, i;
+  long long * aptr = (long long *) ptr;
+  
+  for (i = 0 ; i < (sizeof(cpu_bitmask_t) / sizeof(long long)); i++)
+    if ( d = ffsll(*(aptr++)) )
+      break;
+    else
+      c += (sizeof(long long)* CHAR_BIT);
+
+  if (d == 0)
+    return 0;
+  else
+    return (c + d);
+}
+void clearcpu_bitmask( cpu_bitmask_t * ptr, int cpu_num) {
+  int c = 0, d =0;
+  long long * aptr = (long long *) ptr;
+  aptr = aptr + (cpu_num / (sizeof(long long) * CHAR_BIT)); // select right long long
+  cpu_num %= (sizeof(long long) * CHAR_BIT); // select right cpu num
+  *aptr &= (unsigned long long)~((unsigned long long)1<<cpu_num); //mask it!
+}
+
+void print_bitmask( cpu_bitmask_t * ptr) {
+  int i;
+  long long * aptr = (long long *) ptr;
+  
+  for (i = 0 ; i < (sizeof(cpu_bitmask_t) / sizeof(long long)); i++)
+    printf("%016llx,", *(aptr + (sizeof(cpu_bitmask_t) / sizeof(long long)) -i -1));
+}
+  
+///////////////////////////////////////////////////////////////////////////////
+// policies
+///////////////////////////////////////////////////////////////////////////////
+
+/* RESULTION is 2MB 0x200000 */
+#define RESOLUTION_MASK ((1 << 21) -1)
+int partitionedcpu_globalshm ( numa_node * list)
+{
+
+  //do the partition per node
+  
+  long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  
+  //  better idea just allocate from 0 to.. ?!?!
+  // algorithm is: if over 16MB 
+  int i, l;
+  for (i=0 ; i  < (maxconfigurednode +1) ; i++) {
+     int cpu_num = list[i].cpus;
+     long long size = list[i].size; //which size is it? total or avail?
+     if (cpu_num == 0) {
+       printf("i %d cpu_num %d\n",i , cpu_num );
+       return -1;
+     }
+     long long chunk = size / cpu_num;
+     long long alignedchunk =  chunk & ~RESOLUTION_MASK;
+     long long new_total = alignedchunk * cpu_num;
+     long long diff = size -new_total;
+     long long start = -1;
+     cpu_bitmask_t * mask;
+
+//if (list[i].rstart == list[i].rend) 
+     {
+     /// THIS NODE DOES NOT HAVE ANY HOLES IN ITS MAP
+     start =  list[i].start;
+     cpu_bitmask_t mask = list[i].map;
+     for (l=0; l<cpu_num; l++) {
+	int ccpu = ffsll_bitmask(&mask) -1;
+	
+#define BEN_ALIGNMENT 0x20000000
+#ifdef BEN_ALIGNMENT
+	if ( (start & (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1)) ) {
+	    start &= (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1);
+	    start += BEN_ALIGNMENT;
+	}
+#endif
+	printf ("present_mask=%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
+		    ccpu,
+		    (unsigned long)alignedchunk >> 20, (unsigned long)start >> 20,
+		    (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
+		    (unsigned long)(start + alignedchunk) >> 20
+		);
+	start += alignedchunk;
+	
+	clearcpu_bitmask(&mask, ccpu);
+     }
+}
+//else {
+      /// THIS NODE DOES HAVE HOLES SO MUST BE SPECIALLY HANDLED
+      //contains reserved_cap?
+      // TODOstart = 
+/*      if ((list[i].rstart)->start > reserved_cap) {
+	//if yes account for all the memory to cap, delete it from the total and start accounting memory from there
+	while (1) {
+	}
+	
+	// FOR THIS ELEMENT DO NOT PRINT THE MEMORY CAP ESCLUSION -> 
+	//before printing check if the diff is 0 and do not print
+      }
+  */    /*
+      else
+	
+   idea: 
+   1. remove cap from the allocation (ciclo while)
+   2. questo e il nuovo start --- e anche il nuovo SIZE
+   
+   SIZE le dividiamo con lo stesso trucchetto dell'allineamento ce ne fottiamo di perdere dello spazio
+   
+   
+   3. usa la size per dividere SIZE e real size le hole ci sono ma le inglobiamo negli spazi   
+   4. alloca inglobando le hole
+        NOTA: le hole all'inizio degli spazi vengono automaticamente annullate
+        
+        -> una migliore politica per evitare le hole dev.essere studiata
+        */
+//}
+  }
+ 
+  return 1;
+}
+
+
+
+int clusteredcpu_globalshm ( numa_node * list)
+{
+  return 1;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+// main
+///////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 { 
+  /* options
+   * -p <number_of_partitions>
+   * -f <fixed_amount_of_memory_per_partition> this is special option, otherwise use all the available memory (per partition)
+   * -b <not_allocable_area> this is 16MB by default
+   */
+  
+  // output will be
+  // present_mask=1,2,3,4,5 mem=3G memmap=16MB$0 
+  
+  
+  // TODO
+  
   set_configured_nodes();
   
 /*  printf("possible nodes %d cpus %d\n",
@@ -212,13 +464,17 @@ int main(int argc, char* argv[])
 	 (numa_configured_cpus() +1)
 	);
   
-  long long total = 0, size = 0;
+  long long total = 0, size = 0, cmap = 0;
   int i;
   for (i=0; i< (maxconfigurednode +1); i++) {
-     size= numa_node_size64(i, 0);
+     size = numa_node_size64(i, 0);
+     cpu_bitmask_t a;
+     numa_node_cpumask(i, &a);
      total += size;
-    printf("node %d mem %lld %llx\n",
-	   i, size, size);
+    printf("node %d mem %lld %llx map TODOllx (%d core)\n",
+	   i, size, size, bit_weight_bitmask(&a));
+    
+        // print_bitmask(&a); printf("\n");
   }
     
   printf ("total = %lld %lld kB %lld MB %lld GB\n\n", total, total >>10, total >>20, total >>30);
@@ -247,6 +503,11 @@ int main(int argc, char* argv[])
   
   for (i=maxconfigurednode; i> -1 ; i--) {
      size= numa_node_size64(i, 0);
+     numa_node_cpumask(i, &(anode[i].map));
+          //print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
+     anode[i].cpus = bit_weight_bitmask(&(anode[i].map));
+    // print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
+     
      anode[i].size = size;
      anode[i].end = last;
      anode[i].rend = &(amemres[im]);
@@ -255,6 +516,7 @@ int main(int argc, char* argv[])
        if ( !(im >0) ) {
 	 printf("THERE IS NO MORE MEMORY\n");
 	 break;	 
+	 
        }
        
       unsigned long long avail = last - amemres[im].start; //available space
@@ -267,7 +529,7 @@ int main(int argc, char* argv[])
      
      nlast = last - size;
      anode[i].start = nlast;
-     anode[i].rstart = &(amemres[im]);;
+     anode[i].rstart = &(amemres[im]);
      
     printf("node %d mem %lld %llx - start %llx end %llx (size %llu)\n",
 	   i, anode[i].size, anode[i].size, anode[i].start, anode[i].end, ( anode[i].end - anode[i].start));
@@ -277,9 +539,25 @@ int main(int argc, char* argv[])
 // the following is outputted from linu/arch/x86/mm/numa.c in  setup_node_data
   printf("\n\nCROSSCHECK for consistency with\n"
 	 "dmesg | grep NODE_DATA\n"
-	 "dmesg | grep \"Initmem setup node\"\n");
+	 "dmesg | grep \"Initmem setup node\"\n\n");
+  
+  // precheck - we cannot have more then num_cpu partitions -p   
+  
+  // here the memory allocator has to run , different memory allocators can be written
+  // policy 0: how many partitions? 1, #proc or how many?!
+  // policy 1: number of processor (everyone or subset)
+  
+  // policy 2: single shared memory area, (fixed)
+  // policy 3: per node shared memory memory area in mklinux
+  
+  // policy 4: 
+  
+ partitionedcpu_globalshm ( anode);
+ 
+ free(anode);
   
   return 0;
 }
+
 
 
