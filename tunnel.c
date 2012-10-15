@@ -100,6 +100,7 @@ failed:
 typedef struct ip_tunnel {
   int magic;
   int status;
+  int lock;
   int i;
   char buffer [MAX_BUFFER];
 } ip_tunnel_t;
@@ -132,6 +133,7 @@ printf("mmap(%p, %ld, 0x%x, 0x%x, %d, 0x%lx)\n",
   tun_area = (ip_tunnel_t *)physical;
   tun_area[me].i = 0;
   tun_area[me].magic = MAGIC_NUMBER;
+  tun_area[me].lock = 0; // lock is for multi writer
     
   return tun_area;
 }
@@ -243,8 +245,12 @@ _mimmo:
 	    goto _mimmo;
 	  }
 
+	if ( __sync_lock_test_and_set (&(my_buf->lock), 1) == 1 )
+	  goto _mimmo;
+
 	   memcpy(my_buf->buffer, buffer, byte);
 	   my_buf->i = byte;
+           my_buf->lock = 0;
     }
   }
 }
