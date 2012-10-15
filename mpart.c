@@ -1,4 +1,14 @@
-// most from
+/*
+ * Antonio Barbalace, SSRG, Virginia Tech 2012
+ */
+
+/*
+ * this code partition the memory to be used by mklinux
+ * this is part of a set of scripts, prototype code.
+ */
+
+// EXTERNAL CREDITS
+// most parsing function from
 // numactl-2.0.8-rc5.tar.gz/libnuma.c
 
 #include <string.h>
@@ -7,7 +17,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-
+unsigned long long total_by_node=-1;
 
 /* (cache the result?) */
 long long numa_node_size64(int node, long long *freep)
@@ -80,7 +90,7 @@ int numa_node_cpumask(int node, cpu_bitmask_t * cpus)
 	//unsigned long map[MAX_BITMAP_CPUS];
 	memset(cpus, 0, sizeof(cpu_bitmask_t));
 	char *pmap = (char*) cpus;
-	pmap += (sizeof(cpu_bitmask_t) -1);
+//	pmap += (sizeof(cpu_bitmask_t) -1);
 	
 	FILE *f; 
 	char fn[64];
@@ -96,26 +106,27 @@ int numa_node_cpumask(int node, cpu_bitmask_t * cpus)
 	while (getdelim(&line, &len, '\n', f) > 0) { 
 	  
 	  //printf("%d:%s*%d   %p  %d\n", len, line, strlen(line), line, sizeof(long long));
+	  int llen = strlen(line);
 	  
-	  for (i=0; i<len ; i++) {
+	  for (i=0; i<llen ; i++) {
 	     
-	    if (isspace(line[i]))
+	    if (isspace(line[llen -i]))
 	      continue;
-	    if (line[i] == ',')
+	    if (line[llen -i] == ',')
 	      continue;
-	    if (line[i] == '\n' || line[i] == '\0')
-	      break;
-	    if (!isxdigit(line[i])) {
-	      printf("numa_node_cpumask error '%c' %d\n", line[i], (int)line[i]);
+	    if (line[llen -i] == '\n' || line[llen -i] == '\0')
+	      continue;
+	    if (!isxdigit(line[llen -i])) {
+	      printf("numa_node_cpumask error '%c' %d digit %d\n", line[llen -i], (int)line[llen -i], digit);
 	      return -1;
 	    }
 
 	    if (!(digit & 0x1)) {
-	      *pmap = (hex_to_bin(line[i]) & 0xF) << 4 ;
-
+	      *pmap = (hex_to_bin(line[llen -i]) & 0xF) ;
+	      //pmap++
 	    }else {
-	      *pmap |= hex_to_bin(line[i]) & 0xF;
-	      pmap--;
+	      *pmap |= (hex_to_bin(line[llen -i]) & 0xF ) << 4;
+	      pmap++;
 	    }
 	    
 	    digit++;
@@ -127,6 +138,7 @@ int numa_node_cpumask(int node, cpu_bitmask_t * cpus)
 __end:
 	fclose(f); 	
 	free(line);
+	//printf("digit %d\n",digit);
 
 	return digit;
 }
@@ -346,6 +358,13 @@ int partitionedcpu_globalshm ( numa_node * list)
   //do the partition per node
   
   long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+
+// 512 MB
+#define BEN_ALIGNMENT 0x20000000 
+#ifdef BEN_ALIGNMENT
+  printf ("Ben ALIGNMENT memmap=x@ALIGNED buond %lld\n", (long long) BEN_ALIGNMENT);
+#endif
+  
   
   //  better idea just allocate from 0 to.. ?!?!
   // algorithm is: if over 16MB 
@@ -362,17 +381,14 @@ int partitionedcpu_globalshm ( numa_node * list)
      long long new_total = alignedchunk * cpu_num;
      long long diff = size -new_total;
      long long start = -1;
-     cpu_bitmask_t * mask;
 
-//if (list[i].rstart == list[i].rend) 
-     {
-     /// THIS NODE DOES NOT HAVE ANY HOLES IN ITS MAP
+if (list[i].rstart == list[i].rend) {
+     /// THIS NODE DOES NOT HAVE ANY HOLES IN ITS MAP -------------------------
      start =  list[i].start;
      cpu_bitmask_t mask = list[i].map;
      for (l=0; l<cpu_num; l++) {
 	int ccpu = ffsll_bitmask(&mask) -1;
 	
-#define BEN_ALIGNMENT 0x20000000
 #ifdef BEN_ALIGNMENT
 	if ( (start & (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1)) ) {
 	    start &= (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1);
@@ -390,42 +406,247 @@ int partitionedcpu_globalshm ( numa_node * list)
 	clearcpu_bitmask(&mask, ccpu);
      }
 }
-//else {
-      /// THIS NODE DOES HAVE HOLES SO MUST BE SPECIALLY HANDLED
+else {
+      /// THIS NODE DOES HAVE HOLES SO MUST BE SPECIALLY HANDLED --------------
+      cpu_bitmask_t mask = list[i].map;
+      memres * smemres = list[i].rstart;
+      start = smemres->start;
+      
+#define START_AFTER_CAP      
+#ifdef START_AFTER_CAP
       //contains reserved_cap?
-      // TODOstart = 
-/*      if ((list[i].rstart)->start > reserved_cap) {
-	//if yes account for all the memory to cap, delete it from the total and start accounting memory from there
-	while (1) {
+      while ( smemres->start < reserved_cap ) {
+	if (smemres->end < reserved_cap) { // the hole is inside the cap
+	  smemres += 1;
+	  start = smemres->start;
+	  continue;
 	}
-	
-	// FOR THIS ELEMENT DO NOT PRINT THE MEMORY CAP ESCLUSION -> 
-	//before printing check if the diff is 0 and do not print
+	start = reserved_cap;
+	break;
       }
-  */    /*
-      else
+#endif 
+  
+#define BSP_SPECIAL_HANDLING
+#ifdef BSP_SPECIAL_HANDLING
+{
+    int ccpu = ffsll_bitmask(&mask) -1;
+    if (ccpu == 0) {
+      //consider the cap has part of the BSP memory
+      memres * pamem = amemres;
+      long long end = 0;
+      long long total_to_sum = 0;
+      //sum up all holes to the cap
+      while ( pamem != smemres ) {
+	  total_to_sum += (pamem->start - end);
+	  end = pamem->end;
+	  pamem++;
+      }
+      total_to_sum += (pamem->start - end);
+      
+      printf("cpu %d sum of hole mem before the cap %lld %llx\n", ccpu, total_to_sum, total_to_sum);
+      //This memory will be added to the total available to obtain the perfect chunk size in order to allocate the first 16MB
+      size += total_to_sum;
+      // recalculate the size
+      alignedchunk =  chunk & ~RESOLUTION_MASK;
+      new_total = alignedchunk * cpu_num;
+      diff = size -new_total;
+      start = 0;
+    } 
+}
+#endif
+
+    for (l=0; l<cpu_num; l++) {
+	int ccpu = ffsll_bitmask(&mask) -1;
 	
-   idea: 
-   1. remove cap from the allocation (ciclo while)
-   2. questo e il nuovo start --- e anche il nuovo SIZE
-   
-   SIZE le dividiamo con lo stesso trucchetto dell'allineamento ce ne fottiamo di perdere dello spazio
-   
-   
-   3. usa la size per dividere SIZE e real size le hole ci sono ma le inglobiamo negli spazi   
-   4. alloca inglobando le hole
-        NOTA: le hole all'inizio degli spazi vengono automaticamente annullate
-        
-        -> una migliore politica per evitare le hole dev.essere studiata
-        */
-//}
+#ifdef BEN_ALIGNMENT
+	if ( (start & (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1)) ) {
+	    start &= (unsigned long long)~((unsigned long long)BEN_ALIGNMENT -1);
+	    start += BEN_ALIGNMENT;
+	}
+#endif
+
+      long long endend = start + alignedchunk;
+      long long avail = (smemres->end - start);
+      long long required = alignedchunk, total = alignedchunk;
+      //hole handling code
+      while ( avail < required ) {
+	//switch to next resource
+	total += (smemres +1)->start - smemres->end;
+	smemres += 1;
+	required -= avail;
+	avail = smemres->end - smemres->start;
+	endend = smemres->start + required;
+      }
+
+#ifdef BSP_SPECIAL_HANDLING
+      if (ccpu == 0)
+	printf ("present_mask=%d memmap=%ldM@%ldM mem=%ldM\n",
+		    ccpu,
+		    (unsigned long)total >> 20, (unsigned long)start >> 20,
+		    (unsigned long)(endend) >> 20
+		);
+      else
+#endif
+	printf ("present_mask=%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
+		    ccpu,
+		    (unsigned long)total >> 20, (unsigned long)start >> 20,
+		    (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
+		    (unsigned long)(endend) >> 20
+		);
+	start = endend;
+	
+	clearcpu_bitmask(&mask, ccpu);
+     }
+
   }
- 
+  }
   return 1;
 }
 
+int partitionedcpu_globalshm_nonodes ( numa_node * list)
+{
+  
+#define COM_RESERVOIR  
+#ifdef COM_RESERVOIR
+  long long reserved_com = (0x40 << 20); // 64MB for application communication (Arijit)
+#endif
+    
+  //do the partition without caring about nodes
+  long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  int cpu_num = (numa_configured_cpus() +1);
+//  int size = maxpresentmem;
+ unsigned long long  size = total_by_node;
+  
+  // we do not care about nodes here
+  memres * smemres = amemres;
+  long long start = smemres->start;
+      
+      //contains reserved_cap?
+      while ( smemres->start < reserved_cap ) {
+	if (smemres->end < reserved_cap) { // the hole is inside the cap
+	  smemres += 1;
+	  start = smemres->start;
+	  continue;
+	}
+	start = reserved_cap;
+	break;
+      }
 
+// first cpu we consider is always zero
+      //consider the cap has part of the BSP memory
+      memres * pamem = amemres;
+      long long end = 0;
+      long long total_to_sum = 0;
+      //sum up all holes to the cap
+      while ( pamem != smemres ) {
+	  total_to_sum += (pamem->start - end);
+	  end = pamem->end;
+	  pamem++;
+      }
+      total_to_sum += (pamem->start - end);
+      
+      printf("NONODES cpu %d sum of hole mem before the cap %lld %llx\n", cpu_num, total_to_sum, total_to_sum);
+      //This memory will be added to the total available to obtain the perfect chunk size in order to allocate the first 16MB
+      size += total_to_sum;
 
+    unsigned long long chunk = 0;
+    unsigned long long alignedchunk =0;
+    long long new_total = -1;
+     
+#define BEN_ALIGN_CHUNK 0x40000000
+//#define BEN_ALIGN_CHUNK 0x1000000
+#ifdef BEN_ALIGN_CHUNK 
+      //this must run on the available memory: a lot of memory will be lost because of these alignments
+      unsigned long chunky_num = size /(unsigned long long) BEN_ALIGN_CHUNK;
+      unsigned long chunky_per_cpu = chunky_num / cpu_num;
+      printf("chunkys num = %ld integer chunks per cpu = %ld wasted chunks = %ld\n",
+	     chunky_num, chunky_per_cpu, (chunky_num - (chunky_per_cpu * cpu_num)) );
+      
+      chunk = (unsigned long long)chunky_per_cpu * (unsigned long long)BEN_ALIGN_CHUNK;
+      alignedchunk =  chunk & ~RESOLUTION_MASK;
+      new_total = alignedchunk * cpu_num;
+#else 
+      // total size divided by the number of cpu
+      chunk = size / cpu_num; 
+      // recalculate the size
+      alignedchunk =  chunk & ~RESOLUTION_MASK;
+      new_total = alignedchunk * cpu_num;
+#endif
+      
+#ifdef COM_RESERVOIR
+      size -= reserved_com;
+#endif
+        
+      long long diff = size -new_total;
+      start = 0;
+
+  printf("cpus: %d last address 0x%llx avail memory: 0x%llx (mem lost 0x%llx) chunks %llx aligned %llx\n",
+	 cpu_num , list[maxconfigurednode].rend->end, size,
+	 list[maxconfigurednode].rend->end - size,
+	 chunk, alignedchunk
+	);
+	
+#ifdef BEN_ALIGN_CHUNK
+  {
+  //realign in Ben's required fashion all the memory, i.e. chunks of 512MB, so rewrite the memory map
+  // start to ceil, end to floor
+  memres * a = smemres;
+  while ((a->start != 0) && (a->end !=0)) {
+    printf("REALIGN MEM WAS: 0x%llx - 0x%llx *** ", a->start, a->end);
+    if ( (a->start > reserved_cap ) && (a->start & (BEN_ALIGN_CHUNK -1)) ) { // ceil
+      a->start &= ~(BEN_ALIGN_CHUNK -1);
+      a->start += BEN_ALIGN_CHUNK;
+    }
+    if ( (a->end & (BEN_ALIGN_CHUNK -1)) ) { // floor
+      a->end &= ~(BEN_ALIGN_CHUNK -1);
+    }
+    printf("REALIGN MEM  IS: 0x%llx - 0x%llx\n", a->start, a->end);
+    a++;
+  }
+  }
+#endif
+  
+int l;
+   for (l=0; l<cpu_num; l++) {
+
+      long long endend = start + alignedchunk;
+      long long avail = (smemres->end - start);
+      long long required = alignedchunk, total = alignedchunk;
+      //hole handling code
+      while ( avail < required ) {
+	//switch to next resource
+	total += (smemres +1)->start - smemres->end;
+	smemres += 1;
+	required -= avail;
+	avail = smemres->end - smemres->start;
+	endend = smemres->start + required;
+      }
+// in this policy BSP must be special handled
+
+#ifdef COM_RESERVOIR
+	printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
+#endif
+      if (l == 0)
+	printf ("present_mask=%d memmap=%ldM@%ldM mem=%ldM\n",
+		    l,
+		    (unsigned long)total >> 20, (unsigned long)start >> 20,
+		    (unsigned long)(endend) >> 20
+		);
+      else
+	printf ("present_mask=%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
+		    l,
+		    (unsigned long)total >> 20, (unsigned long)start >> 20,
+		    (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
+		    (unsigned long)(endend) >> 20
+		);
+	
+	start = endend;
+     }
+
+  return 1;
+}
+
+// TODO clustered around the nodes
 int clusteredcpu_globalshm ( numa_node * list)
 {
   return 1;
@@ -478,7 +699,7 @@ int main(int argc, char* argv[])
   }
     
   printf ("total = %lld %lld kB %lld MB %lld GB\n\n", total, total >>10, total >>20, total >>30);
-  
+  total_by_node = total; //unsigned long long total_by_node=-1;
   /////////////////////////////////////////////////////////////////////////////
     
   set_present_mem();
@@ -506,7 +727,7 @@ int main(int argc, char* argv[])
      numa_node_cpumask(i, &(anode[i].map));
           //print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
      anode[i].cpus = bit_weight_bitmask(&(anode[i].map));
-    // print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
+  //print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
      
      anode[i].size = size;
      anode[i].end = last;
@@ -529,6 +750,7 @@ int main(int argc, char* argv[])
      
      nlast = last - size;
      anode[i].start = nlast;
+     
      anode[i].rstart = &(amemres[im]);
      
     printf("node %d mem %lld %llx - start %llx end %llx (size %llu)\n",
@@ -552,7 +774,8 @@ int main(int argc, char* argv[])
   
   // policy 4: 
   
- partitionedcpu_globalshm ( anode);
+  // partitionedcpu_globalshm( anode);
+ partitionedcpu_globalshm_nonodes ( anode);
  
  free(anode);
   

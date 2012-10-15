@@ -1,10 +1,10 @@
 #!/bin/sh
 echo MKLINUX: loading ramdisk...
-./copy_ramdisk 0x60000000
+./copy_ramdisk 0x130000000
 echo MKLINUX: setting boot arguments...
 ./set_boot_args bootargs_antonio.txt
 echo MKLINUX: loading kernel...
-kexec -d -a 0x40000000 -l /kernel/vmlinux.elf -t elf-x86_64 --args-none
+kexec -d -a 0x110000000 -l vmlinux.elf -t elf-x86_64 --args-none
 echo MKLINUX: booting kernel...
-kexec -d -a 0x40000000 -b 3
+kexec -d -a 0x110000000 -b 3
 

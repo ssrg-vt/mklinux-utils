@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Boot params at 0x%lx, mapped addr 0x%lx\n", boot_params_phys_addr, boot_params_base_addr);
 
+	printf("Location of kernel arguments: 0x%lx\n", boot_params_base_addr->hdr.cmd_line_ptr);
 
 	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
 	boot_params_base_addr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
