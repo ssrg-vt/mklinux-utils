@@ -508,7 +508,8 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
   
 #define COM_RESERVOIR  
 #ifdef COM_RESERVOIR
-  long long reserved_com = (0x40 << 20); // 64MB for application communication (Arijit)
+#define MACH_64CORE_RESERV 0x70000000
+  long long reserved_com = (0x40 << 20) + MACH_64CORE_RESERV; // 64MB for application communication (Arijit)
 #endif
     
   //do the partition without caring about nodes
@@ -553,8 +554,8 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
     unsigned long long alignedchunk =0;
     long long new_total = -1;
      
-#define BEN_ALIGN_CHUNK 0x40000000
-//#define BEN_ALIGN_CHUNK 0x1000000
+//#define BEN_ALIGN_CHUNK 0x40000000
+#define BEN_ALIGN_CHUNK 0x8000000
 #ifdef BEN_ALIGN_CHUNK 
       //this must run on the available memory: a lot of memory will be lost because of these alignments
       unsigned long chunky_num = size /(unsigned long long) BEN_ALIGN_CHUNK;
