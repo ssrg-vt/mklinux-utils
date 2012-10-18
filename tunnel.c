@@ -2,7 +2,6 @@
 #include <net/if.h>
 #include <linux/if_tun.h>
 
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -11,7 +10,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <sched.h>
-
+#include <time.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <pthread.h>
@@ -88,6 +87,15 @@ static int tun_open_common(char *dev, int istun)
 failed:
     close(fd);
     return -1;
+}
+
+
+
+#define DEBUGF logging
+
+int logging( const char namefmt[], ...) {
+//  printf(args);
+return 0;
 }
 
 #define MAX_IP 64
@@ -193,7 +201,7 @@ void  * loop(void * arg) {
   }
 }
 
-
+struct timespec sleep_send = {0, 50000000}; //50ms
 void  * pop_send(void * arg) {
   int byte = 0; 
   popcorn * pp =  (popcorn *) arg;
@@ -207,14 +215,14 @@ void  * pop_send(void * arg) {
   
   while(!stop){
     if (byte = tun_read(fd, buffer, MAX_BUFFER)) {
-	    printf("SEND bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
+	    DEBUGF("SEND bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
 		   byte,
 		   (int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
 		   (int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
 		  );
            // check IP address - not on this network
            if ( !((buffer[19]-1) < MAX_IP) ) {
-             printf("PACKET DROP ip (.%d) is greater the MAX_IP (%d)\n",
+             DEBUGF("PACKET DROP ip (.%d) is greater the MAX_IP (%d)\n",
                (buffer[19]), MAX_IP );
             continue;
            }
@@ -223,7 +231,7 @@ void  * pop_send(void * arg) {
 	   
 	   // check magic number
 	   if (my_buf->magic != MAGIC_NUMBER) {
-	     printf("PACKET DROP magic number not present @ %p is 0x%x (remote id is %d)\n",
+	     DEBUGF("PACKET DROP magic number not present @ %p is 0x%x (remote id is %d)\n",
 	       my_buf, my_buf->magic, (buffer[19]-1) );
             continue;
            }
@@ -236,12 +244,13 @@ _mimmo:
 	  
 	  if (i == 0x1000) {
 	    if ( !(l++%MAX_VERBOSE) )
-		printf("remote .%d (%d.%d.%d.%d) id not ready to accept data - i is %d\n",
+		DEBUGF("remote .%d (%d.%d.%d.%d) id not ready to accept data - i is %d\n",
 		   (buffer[19]-1),
 		   (int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19],
 		   my_buf->i
 		  );
-	    sched_yield();
+	    //sched_yield();
+nanosleep(&sleep_send, 0);
 	    goto _mimmo;
 	  }
 
@@ -254,6 +263,7 @@ _mimmo:
     }
   }
 }
+struct timespec sleep_recv = {0, 100000000}; // 100ms
 void  * pop_recv(void * arg) {
   int byte = 0; 
   popcorn * pp =  (popcorn *) arg;
@@ -274,23 +284,24 @@ void  * pop_recv(void * arg) {
 	 
 	if (i == 0x1000) {
 	  if (!(l++%MAX_VERBOSE))
-	    printf("local .%d no data to recv - i is %d\n",
+	    DEBUGF("local .%d no data to recv - i is %d\n",
 		   (pp->cpu +1),
 		   my_buf->i
 		  );
-	    sched_yield();
+	nanosleep(&sleep_recv, 0);
+//	    sched_yield();
 	    continue;
 	}
 	
 	// check magic number
 	   if (my_buf->magic != MAGIC_NUMBER)
-	     printf("magic number not present @ %p is 0x%x (local id is %d)\n",
+	     DEBUGF("magic number not present @ %p is 0x%x (local id is %d)\n",
 	       my_buf, my_buf->magic, pp->cpu
 	    );
 	
 	buffer = my_buf->buffer;
 	byte = my_buf->i;
-	printf("RECV bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
+	DEBUGF("RECV bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
 		   byte,
 		   (int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
 		   (int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
@@ -355,8 +366,10 @@ int main (int argc, char * argv [] ) {
   pthread_create(&tun0_thread, 0, loop, &tun0_tun);
   pthread_create(&tun1_thread, 0, loop, &tun1_tun);
 #endif
-  
+ 
+while (1) { 
   sleep(1200);
+}
   stop = 1;
   
 #ifndef TEST
