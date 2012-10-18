@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "$*"
+
+DST="$1" ; shift
+CMD="$*"
+PIPE="/tmp/popcorn_slingshot_named_pipe_$DST"
+
+mkfifo $PIPE
+
+cu -l "$DST" < $PIPE &
+
+sleep 2
+
+( echo "root" ; sleep 1 ; echo $CMD ; sleep 1 ) > $PIPE
+
+sleep 1
+
+rm $PIPE
