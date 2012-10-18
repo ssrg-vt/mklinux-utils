@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [[ "$USER" != "root" ]] ; then
+	echo "Only root can boot new kernels."
+	exit 1
+fi
+
 KERNEL=$1
 BOOT_ARGS=$2
 CPU=$3

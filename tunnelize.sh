@@ -1,7 +1,13 @@
 #!/bin/sh
 
+if [[ "$USER" != "root" ]] ; then
+	echo "Only root can start the network."
+	exit 1
+fi
+
 VTY_ADDR=0x1ffc000000
-TUN_ADDR=0x1fec000000
+#TUN_ADDR=0x1fec000000 # gigi
+TUN_ADDR=0xfbc000000 # found
 REPRESENTATIVE=`cat /proc/cpuinfo | grep processor | awk '{print $3}' | head -n 1`
 TUN_CPU=$(( $REPRESENTATIVE + 1 ))
 echo $TUN_ADDR $1
