@@ -7,12 +7,13 @@ REPRESENTATIVE=`cat /proc/cpuinfo | grep processor | awk '{print $3}' | head -n 
 TUN_CPU=$(( $REPRESENTATIVE + 1 ))
 echo $TUN_ADDR $1
 
+NICE="nice -n 20"
 TUNNEL=""
-[ -x "/home/bshelton/mklinux/mklinux-utils/tunnel" ] && TUNNEL="nice -n 20 /home/bshelton/mklinux/mklinux-utils/tunnel"
-[ -x "./tunnel" ] && TUNNEL="nice -n 20 ./tunnel"
-which tunnel && TUNNEL="nice -n 20 tunnel"
+[ -x "/home/bshelton/mklinux/mklinux-utils/tunnel" ] && TUNNEL="/home/bshelton/mklinux/mklinux-utils/tunnel"
+[ -x "./tunnel" ] && TUNNEL="./tunnel"
+which tunnel && TUNNEL="tunnel"
 
-$TUNNEL $TUN_ADDR $REPRESENTATIVE &> /dev/null &
+$NICE $TUNNEL $TUN_ADDR $REPRESENTATIVE &> /dev/null &
 TUN_ID=`ip -f inet link show |  awk '/tun[0-9]:/ {print $2}' | tail -n 1`
 #TUN_DEV=${TUN_ID#tun}
 TUN_DEV=${TUN_ID%:}
