@@ -31,7 +31,7 @@ echo "Will boot kernels $FIRST though $LAST (`seq $FIRST $LAST | wc -l` guest ke
 [ ! -f ./mklinux_boot.sh ] && die "No ./mklinux_boot, are you in mklinux-utils?"
 [ ! -x ./mklinux_boot.sh ] && die "./mklinux_boot is not executable."
 
-for a in `seq $FIRST $END` ; do
+for a in `seq $FIRST $LAST` ; do
 	[ ! -f boot_args_${a}.param ] && die "Boot parameters $a are missing."
 	./mklinux_boot.sh `cat boot_args_${a}.param`
 	sleep $SLEEP_TIME # Give the kernel time to boot before continuing.
