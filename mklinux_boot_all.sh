@@ -27,7 +27,6 @@ echo "Will boot kernels $FIRST though $LAST (`seq $FIRST $LAST | wc -l` guest ke
 [ $FIRST -eq 0 ] && die "0 is the host kernel."
 [ $FIRST -gt $MAX ] && die "Cannot boot kernels higher than $MAX"
 [ $LAST -lt $FIRST ] && die "Cannot boot kernels in reverse."
-exit
 
 [ ! -f ./mklinux_boot.sh ] && die "No ./mklinux_boot, are you in mklinux-utils?"
 [ ! -x ./mklinux_boot.sh ] && die "./mklinux_boot is not executable."
