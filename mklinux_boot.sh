@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [[ "$USER" != "root" ]] ; then
 	echo "Only root can boot new kernels."

@@ -249,8 +249,8 @@ _mimmo:
 		   (int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19],
 		   my_buf->i
 		  );
-	    //sched_yield();
-nanosleep(&sleep_send, 0);
+	    sched_yield();
+	    //nanosleep(&sleep_send, 0);
 	    goto _mimmo;
 	  }
 
@@ -288,8 +288,8 @@ void  * pop_recv(void * arg) {
 		   (pp->cpu +1),
 		   my_buf->i
 		  );
-	nanosleep(&sleep_recv, 0);
-//	    sched_yield();
+	    //nanosleep(&sleep_recv, 0);
+	    sched_yield();
 	    continue;
 	}
 	

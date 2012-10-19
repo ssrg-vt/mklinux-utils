@@ -5,6 +5,8 @@ function die {
 	exit 1
 }
 
+SLEEP_TIME=10
+
 FIRST=1
 if [[ "`hostname`" == "gigi" ]] ; then
 	LAST=63
@@ -22,5 +24,5 @@ fi
 for a in `seq $FIRST $END` ; do
 	[ ! -f boot_args_${a}.param ] && die "Boot parameters $a are missing."
 	./mklinux_boot.sh `cat boot_args_${a}.param`
-	sleep 7 # Give the kernel time to boot before continuing.
+	sleep $SLEEP_TIME # Give the kernel time to boot before continuing.
 done

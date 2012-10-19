@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [[ "$USER" != "root" ]] ; then
 	echo "Only root can start the network."
@@ -13,9 +13,9 @@ TUN_CPU=$(( $REPRESENTATIVE + 1 ))
 echo $TUN_ADDR $1
 
 TUNNEL=""
-[ -x "/home/bshelton/mklinux/mklinux-utils/tunnel" ] && TUNNEL="/home/bshelton/mklinux/mklinux-utils/tunnel"
-[ -x "./tunnel" ] && TUNNEL="./tunnel"
-which tunnel && TUNNEL="tunnel"
+[ -x "/home/bshelton/mklinux/mklinux-utils/tunnel" ] && TUNNEL="nice -n 20 /home/bshelton/mklinux/mklinux-utils/tunnel"
+[ -x "./tunnel" ] && TUNNEL="nice -n 20 ./tunnel"
+which tunnel && TUNNEL="nice tunnel"
 
 $TUNNEL $TUN_ADDR $REPRESENTATIVE &> /dev/null &
 TUN_ID=`ip -f inet link show |  awk '/tun[0-9]:/ {print $2}' | tail -n 1`
