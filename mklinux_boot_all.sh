@@ -5,18 +5,29 @@ function die {
 	exit 1
 }
 
-SLEEP_TIME=10
+SLEEP_TIME=20
 
 FIRST=1
 if [[ "`hostname`" == "gigi" ]] ; then
-	LAST=63
+	MAX=63
 elif [[ "`hostname`" == "found" ]] ; then
-	LAST=47
+	MAX=47
 elif [[ "`hostname`" == "rosella" ]] ; then
-	LAST=47
+	MAX=47
 else
 	die "No configuration for host `hostname`."
 fi
+
+[ $# -eq 0 ] && LAST="$MAX"
+[ $# -eq 1 ] && LAST="$1"
+[ $# -eq 2 ] && FIRST="$1" && LAST="$2"
+[ $# -eq 3 ] && FIRST="$1" && LAST="$2" && SLEEP_TIME="$3"
+echo "Will boot kernels $FIRST though $LAST (`seq $FIRST $LAST | wc -l` guest kernels), one every $SLEEP_TIME seconds"
+
+[ $FIRST -eq 0 ] && die "0 is the host kernel."
+[ $FIRST -gt $MAX ] && die "Cannot boot kernels higher than $MAX"
+[ $LAST -lt $FIRST ] && die "Cannot boot kernels in reverse."
+exit
 
 [ ! -f ./mklinux_boot.sh ] && die "No ./mklinux_boot, are you in mklinux-utils?"
 [ ! -x ./mklinux_boot.sh ] && die "./mklinux_boot is not executable."
