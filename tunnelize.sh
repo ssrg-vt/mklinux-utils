@@ -1,10 +1,5 @@
 #!/bin/sh
 
-if [[ "$USER" != "root" ]] ; then
-	echo "Only root can start the network."
-	exit 1
-fi
-
 VTY_ADDR=0x1ffc000000
 #TUN_ADDR=0x1fec000000 # gigi
 TUN_ADDR=0xfbc000000 # found
