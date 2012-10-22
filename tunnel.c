@@ -313,6 +313,40 @@ void  * pop_recv(void * arg) {
   my_buf->status = STATUS_DISCON;
 }
 
+void dump(ip_tunnel_t *data, int max) {
+  int i;
+  int mem_fd;
+  void* physical;  
+  ip_tunnel_t * tun_area;
+  
+  mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+  if (mem_fd < 0) {
+    perror("open /dev/mem error");
+    exit(0);
+  }
+
+long delta = sysconf(_SC_PAGE_SIZE);
+ 
+printf("mmap(%p, %ld, 0x%x, 0x%x, %d, 0x%lx)\n",
+  (void*) 0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (unsigned long)data); 
+  //(void*) 0, (delta * 4), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr); 
+  physical = mmap(0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)data);
+  //physical = mmap(0, delta * 4, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
+  printf("base address %p\n", physical);
+  if (physical == -1) {
+    perror("mmap");
+    exit(0);
+  }
+
+  data = physical;
+  for (i=0; i<max; i++)
+    printf("%d: m:%x s:%s l:%d i:%d\n", i,
+	   data[i].magic,
+	   (data[i].status == STATUS_CON) ? "conn" : (data[i].status == STATUS_DISCON) ? "deco" : "none",
+	   data[i].lock,
+	   data[i].i);
+}
+
 int main (int argc, char * argv [] ) {
 #ifdef TEST 
   pthread_t tun0_thread, tun1_thread;
@@ -329,6 +363,15 @@ int main (int argc, char * argv [] ) {
   pthread_t tun_send, tun_recv;
   char name[32];
   memset(name, 0, 32);
+  
+  if (argc == 2) {
+  void * phy_addr;
+  //sscanf(argv[1], "%x", &phy_addr);
+  phy_addr = (void*)strtoul(argv[1], 0, 0);
+
+  dump(phy_addr, 48);
+    return;
+  }
   
   int tun = tun_open(name);
 
