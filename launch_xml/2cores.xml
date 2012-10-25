@@ -10,6 +10,7 @@
 		<kernel_addr>0x40000000</kernel_addr>
 		<ramdisk_addr>0x60000000</ramdisk_addr>
 		<pci_flags>32902:28688:b</pci_flags>
+		<console>ttyS0,115200</console>
 	</kernel>
 	<kernel>
 	        <phys_cpu>3</phys_cpu>
@@ -18,5 +19,6 @@
                 <kernel_addr>0x80000000</kernel_addr>
                 <ramdisk_addr>0xa0000000</ramdisk_addr>
                 <pci_flags>32902:28688:b</pci_flags>
+		<console>ttyS1,115200</console>
         </kernel>
 </mklinux_params>
