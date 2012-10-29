@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Opened /dev/mem, fd %d\n", mem_fd);
 	ramdisk_base_addr = mmap(0, ramdisk_size, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, ramdisk_phys_addr);
-	printf("Ramdisk at 0x%lx, mapped addr 0x%lx\n", ramdisk_phys_addr, ramdisk_base_addr);
+	printf("Ramdisk at 0x%lx, mapped addr 0x%p\n", ramdisk_phys_addr, ramdisk_base_addr);
 
 	/* Read the ramdisk into memory */
 	size_read = fread(ramdisk_base_addr, 1, ramdisk_size, file);
@@ -96,9 +96,9 @@ int main(int argc, char *argv[]) {
 
 	boot_params_base_addr = boot_params_page_base_addr + boot_params_offset;
 
-	printf("Boot params at 0x%lx, mapped addr 0x%lx\n", boot_params_phys_addr, boot_params_base_addr);
+	printf("Boot params at 0x%lx, mapped addr 0x%p\n", boot_params_phys_addr, boot_params_base_addr);
 
-	printf("Location of kernel arguments: 0x%lx\n", boot_params_base_addr->hdr.cmd_line_ptr);
+	printf("Location of kernel arguments: 0x%x\n", boot_params_base_addr->hdr.cmd_line_ptr);
 
 	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
 	boot_params_base_addr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
