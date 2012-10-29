@@ -26,31 +26,31 @@
  */  
 static int tun_open_common0(char *dev, int istun)
 {
-    char tunname[14];
-    int i, fd, err;
+	char tunname[14];
+	int i, fd, err;
 
-    if (*dev) {
-       sprintf(tunname, "/dev/%s", dev);
-       return open(tunname, O_RDWR);
-    }
+	if (*dev) {
+		sprintf(tunname, "/dev/%s", dev);
+		return open(tunname, O_RDWR);
+	}
 
-    sprintf(tunname, "/dev/%s", istun ? "tun" : "tap");
-    err = 0;
-    for (i=0; i < 255; i++) {
-       sprintf(tunname + 8, "%d", i);
-       /* Open device */
-       if ((fd=open(tunname, O_RDWR)) > 0) {
-          strcpy(dev, tunname + 5);
-          return fd;
-       }
-       else if (errno != ENOENT)
-          err = errno;
-       else if (i)	/* don't try all 256 devices */
-          break;
-    }
-    if (err)
-	    errno = err;
-    return -1;
+	sprintf(tunname, "/dev/%s", istun ? "tun" : "tap");
+	err = 0;
+	for (i=0; i < 255; i++) {
+		sprintf(tunname + 8, "%d", i);
+		/* Open device */
+		if ((fd=open(tunname, O_RDWR)) > 0) {
+			strcpy(dev, tunname + 5);
+			return fd;
+		}
+		else if (errno != ENOENT)
+			err = errno;
+		else if (i)	/* don't try all 256 devices */
+			break;
+	}
+	if (err)
+		errno = err;
+	return -1;
 }
 
 #ifndef OTUNSETNOCSUM
@@ -107,12 +107,13 @@ int logging( const char namefmt[], ...) {
 #define MAGIC_NUMBER 0xA5A5C3C3
 #define STATUS_CON 0x12345678
 #define STATUS_DISCON 0x87654321
+#define NUM_SPIN 0x1000
 
 typedef struct ip_tunnel {
 	int magic;
 	int status;
 	int lock;
-	int i;
+	int content_size;
 	char buffer [MAX_BUFFER];
 } ip_tunnel_t;
 
@@ -136,13 +137,13 @@ static ip_tunnel_t * open_shm(void* addr, int me) {
 	physical = mmap(0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
 	//physical = mmap(0, delta * 4, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
 	printf("base address %p\n", physical);
-	if (physical == -1) {
+	if ((unsigned long) physical == -1) {
 		perror("mmap");
 		exit(0);
 	}
 
-	tun_area = (ip_tunnel_t *)physical;
-	tun_area[me].i = 0;
+	tun_area = (ip_tunnel_t *) physical;
+	tun_area[me].content_size = 0;
 	tun_area[me].magic = MAGIC_NUMBER;
 	tun_area[me].lock = 0; // lock is for multi writer
 
@@ -162,7 +163,8 @@ int tap_write(int fd, char *buf, int len) { return write(fd, buf, len); }
 int tun_read(int fd, char *buf, int len) { return read(fd, buf, len); }
 int tap_read(int fd, char *buf, int len) { return read(fd, buf, len); }
 
-int stop =0;
+/* Set to 1 to shut down tunnel */
+int stop = 0;
 
 
 
@@ -177,7 +179,7 @@ typedef struct __popcorn{
 	ip_tunnel_t * addr;
 } popcorn;
 
-void  * loop(void * arg) {
+void * loop(void * arg) {
 	int byte = 0; 
 	tunnel * tuna = (tunnel *) arg;
 	char * buffer = malloc(MAX_BUFFER);
@@ -186,7 +188,7 @@ void  * loop(void * arg) {
 
 	printf("BEGIN THREAD read %d write %d\n", fd_read, fd_write);
 
-	while(!stop){
+	while (!stop) {
 		if (byte = tun_read(fd_read, buffer, MAX_BUFFER)) {
 			printf("%d -> %d bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
 					fd_read, fd_write, byte,
@@ -219,7 +221,7 @@ void  * pop_send(void * arg) {
 					(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
 			      );
 			// check IP address - not on this network
-			if ( !((buffer[19]-1) < MAX_IP) ) {
+			if (!((buffer[19]-1) < MAX_IP)) {
 				DEBUGF("PACKET DROP: ip (.%d) is greater than MAX_IP (%d)\n",
 						(buffer[19]), MAX_IP );
 				continue;
@@ -236,27 +238,28 @@ void  * pop_send(void * arg) {
 
 			int i;
 _mimmo:
-			for(i = 0; i < MAX_BUFFER; i++)
-				if (my_buf->i == 0)
+			for (i = 0; i < NUM_SPIN; i++)
+				/* spin until buffer is empty and ready to write */
+				if (!my_buf->content_size)
 					break;
 
-			if (i == MAX_BUFFER) {
-				if ( !(l++%MAX_VERBOSE) )
-					DEBUGF("remote .%d (%d.%d.%d.%d) id not ready to accept data - i is %d\n",
+			if (i == NUM_SPIN) {
+				if (!(l++ % MAX_VERBOSE))
+					DEBUGF("remote .%d (%d.%d.%d.%d) id not ready to accept data - content_size is %d\n",
 							(buffer[19]-1),
 							(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19],
-							my_buf->i
+							my_buf->content_size
 					      );
 				sched_yield();
 				//nanosleep(&sleep_send, 0);
 				goto _mimmo;
 			}
 
-			if ( __sync_lock_test_and_set (&(my_buf->lock), 1) == 1 )
+			if (__sync_lock_test_and_set (&(my_buf->lock), 1) == 1)
 				goto _mimmo;
 
 			memcpy(my_buf->buffer, buffer, byte);
-			my_buf->i = byte;
+			my_buf->content_size = byte;
 			my_buf->lock = 0;
 		}
 	}
@@ -278,36 +281,39 @@ void  * pop_recv(void * arg) {
 
 	while (!stop) {
 		int i;
-		for (i = 0; i < MAX_BUFFER; i++)
-			if (my_buf->i != 0)
+
+		/* spin until there's something in the buffer */
+		for (i = 0; i < NUM_SPIN; i++)
+			if (my_buf->content_size)
 				break;
 
-		if (i == MAX_BUFFER) {
-			if (!(l++%MAX_VERBOSE))
+		/* maybe print stats if we've timed out waiting */
+		if (i == NUM_SPIN) {
+			if (!(l++ % MAX_VERBOSE))
 				DEBUGF("local .%d no data to recv - i is %d\n",
 						(pp->cpu +1),
-						my_buf->i
+						my_buf->content_size
 				      );
 			//nanosleep(&sleep_recv, 0);
 			sched_yield();
 			continue;
 		}
 
-		// check magic number
+		/* check magic number */
 		if (my_buf->magic != MAGIC_NUMBER)
 			DEBUGF("magic number not present @ %p is 0x%x (local id is %d)\n",
 					my_buf, my_buf->magic, pp->cpu
 			      );
 
 		buffer = my_buf->buffer;
-		byte = my_buf->i;
+		byte = my_buf->content_size;
 		DEBUGF("RECV bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
 				byte,
 				(int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
 				(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
 		      );
 		tun_write(fd, buffer, byte);
-		my_buf->i = 0;    
+		my_buf->content_size = 0;    
 	}
 	my_buf->magic = 0; // this is temporary in the meanwhile we will implement status
 	my_buf->status = STATUS_DISCON;
@@ -333,18 +339,18 @@ void dump(ip_tunnel_t *data, int max) {
 	physical = mmap(0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)data);
 	//physical = mmap(0, delta * 4, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
 	printf("base address %p\n", physical);
-	if (physical == -1) {
+	if ((unsigned long) physical == -1) {
 		perror("mmap");
 		exit(0);
 	}
 
 	data = physical;
-	for (i=0; i<max; i++)
+	for (i = 0; i < max; i++)
 		printf("%d: m:%x s:%s l:%d i:%d\n", i,
 				data[i].magic,
 				(data[i].status == STATUS_CON) ? "conn" : (data[i].status == STATUS_DISCON) ? "deco" : "none",
 				data[i].lock,
-				data[i].i);
+				data[i].content_size);
 }
 
 int main (int argc, char * argv [] ) {
@@ -375,7 +381,7 @@ int main (int argc, char * argv [] ) {
 
 	int tun = tun_open(name);
 
-	popcorn pp = {.fd = tun, .cpu = -1, .addr= 0};
+	popcorn pp = {.fd = tun, .cpu = -1, .addr = 0};
 #endif
 
 	if (argc != 3)
@@ -386,7 +392,7 @@ int main (int argc, char * argv [] ) {
 	phy_addr = (void*)strtoul(argv[1], 0, 0);
 	int cpuid = atoi(argv[2]);
 
-	if ( !(cpuid < MAX_IP) ) {
+	if (!(cpuid < MAX_IP)) {
 		printf("ERROR cpuid (%d) greater then MAX_IP (%d)\n", cpuid, MAX_IP);
 		exit(0);
 	}
