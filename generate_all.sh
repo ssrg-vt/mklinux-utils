@@ -11,8 +11,10 @@ for CPU in $CPUS
 do
 
   ARGS=`./boot_args.sh $CPU`
-  echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
 
+if [ -n "$ARGS" ] 
+then 
+echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
   for ELEM in $ARGS
   do
 
@@ -32,7 +34,9 @@ do
   BOOT_ADDR=`printf "0x%x\n" $(( ${START%M} << 20 ))`
   RAMDISK_ADDR=`printf "0x%x\n" $(( ( ${START%M} + $RAMDISK_OFFSET ) << 20 ))`
 
+ # echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
   echo "vmlinux.elf $FILE_PARAMS$CPU$FILE_ARGS $CPUUU $BOOT_ADDR $RAMDISK_ADDR" > $FILE_PARAMS$CPU$FILE_PARAM
+fi
   START_ADDR=""
 
 done
