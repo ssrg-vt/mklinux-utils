@@ -12,7 +12,7 @@ NICE="nice -n 20"
 TUNNEL=""
 [ -x "/home/${USER}/mklinux/mklinux-utils/shmtunnel" ] && TUNNEL="/home/${USER}/mklinux/mklinux-utils/shmtunnel"
 [ -x "./shmtunnel" ] && TUNNEL="./shmtunnel"
-which tunnel && TUNNEL="tunnel"
+which shmtunnel && TUNNEL="shmtunnel"
 
 $NICE $TUNNEL $TUN_ADDR $REPRESENTATIVE &
 sleep 2
