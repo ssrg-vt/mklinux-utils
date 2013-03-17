@@ -14,6 +14,8 @@ elif [[ "`hostname`" == "found" ]] ; then
 	MAX=47
 elif [[ "`hostname`" == "rosella" ]] ; then
 	MAX=47
+elif [[ "`hostname`" == "bob" ]] ; then
+	MAX=63
 else
 	die "No configuration for host `hostname`."
 fi
