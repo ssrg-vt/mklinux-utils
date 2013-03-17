@@ -775,7 +775,7 @@ int main(int argc, char* argv[])
   
   // policy 4: 
   
-  // partitionedcpu_globalshm( anode);
+//   partitionedcpu_globalshm( anode); // not really working
  partitionedcpu_globalshm_nonodes ( anode);
  
  free(anode);

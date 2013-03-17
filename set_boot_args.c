@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	printf("Opened /dev/mem, fd %d\n", mem_fd);
 	boot_args_base_addr = mmap(0, 0x800, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, 0x8d000);
-	printf("Boot args at 0x8d000, mapped addr 0x%p\n", boot_args_base_addr);
+	printf("Boot args at 0x8d000, mapped addr 0x%lx\n", boot_args_base_addr);
 
 	/* Copy the boot arguments to the right place */
 	strcpy((char *)boot_args_base_addr, (char *)boot_args);
