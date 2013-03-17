@@ -37,7 +37,7 @@ fi
 
 RET=`./mpart > mpart_map`
 
-ARG_PART=`cat mpart_map | grep "present_mask=$1 "`
+ARG_PART=`cat mpart_map | grep "present_mask=$1[ -]"`
 if [ $? -ne 0 ]
 then
   exit 0

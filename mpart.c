@@ -647,10 +647,51 @@ int l;
   return 1;
 }
 
-// TODO clustered around the nodes
-int clusteredcpu_globalshm ( numa_node * list)
+// clustered around the nodes
+int clusteredcpu_on_nodes ( numa_node * list)
 {
-  return 1;
+	//do the partition per cluster
+	// instead of asking the cluster size (that can be done in the future if required..)
+	// we just need to get the cpu per node and cluster on them,
+
+	long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+
+	// 512 MB
+#define BEN_ALIGNMENT 0x20000000
+#ifdef BEN_ALIGNMENT
+	printf ("CLUSTERED Ben ALIGNMENT memmap=x@ALIGNED buond %lld\n", (long long) BEN_ALIGNMENT);
+#endif
+
+	// algorithm is: if over 16MB
+	int i, id_base =0;
+	long long start =0;
+
+	for (i=0 ; i  < (maxconfigurednode +1) ; i++) {
+		int cpu_num = list[i].cpus;
+		if (cpu_num == 0) {
+			printf("ERROR i %d cpu_num %d\n",i , cpu_num );
+			return -1;
+		}
+
+		long long chunk = list[i].size;
+		long long alignedchunk =  chunk & ~RESOLUTION_MASK;
+//		long long diff = size -new_total;
+		long long start = list[i].start;
+/*if (start < reserved_cap) { // include reserved cap
+	printf ("present_mask=%d-%d mem=%ldM\n",
+			id_base, id_base + (cpu_num -1),
+			(unsigned long)(alignedchunk) >> 20);
+} else { // TODO
+*/		printf ("present_mask=%d-%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
+				id_base, id_base + (cpu_num -1),
+				(unsigned long)alignedchunk >> 20, (unsigned long)start >> 20,
+				(unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
+				(unsigned long)(start + alignedchunk) >> 20);
+//}
+
+		id_base += cpu_num;
+	}
+	return 1;
 }
 
 
@@ -727,7 +768,7 @@ int main(int argc, char* argv[])
      size= numa_node_size64(i, 0);
      numa_node_cpumask(i, &(anode[i].map));
           //print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
-     anode[i].cpus = bit_weight_bitmask(&(anode[i].map));
+     anode[i].cpus = bit_weight_bitmask(&(anode[i].map)); //number of cpus
   //print_bitmask(&(anode[i].map)); printf(" (%d) \n", anode[i].cpus);
      
      anode[i].size = size;
@@ -754,8 +795,8 @@ int main(int argc, char* argv[])
      
      anode[i].rstart = &(amemres[im]);
      
-    printf("node %d mem %lld %llx - start %llx end %llx (size %llu)\n",
-	   i, anode[i].size, anode[i].size, anode[i].start, anode[i].end, ( anode[i].end - anode[i].start));
+    printf("node %d mem %lld %llx - start %llx (%lldMB) end %llx (size %llu)\n",
+	   i, anode[i].size, anode[i].size, anode[i].start, anode[i].start >> 20, anode[i].end, ( anode[i].end - anode[i].start));
     last = nlast;    
   }
 
@@ -775,8 +816,10 @@ int main(int argc, char* argv[])
   
   // policy 4: 
   
-//   partitionedcpu_globalshm( anode); // not really working
+// partitionedcpu_globalshm_nonodes ( anode);
+  // partitionedcpu_globalshm( anode);
  partitionedcpu_globalshm_nonodes ( anode);
+// clusteredcpu_on_nodes(anode);
  
  free(anode);
   
