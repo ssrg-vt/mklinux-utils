@@ -10,7 +10,7 @@ echo $TUN_ADDR
 
 NICE="nice -n 20"
 TUNNEL=""
-[ -x "/home/bshelton/mklinux/mklinux-utils/shmtunnel" ] && TUNNEL="/home/bshelton/mklinux/mklinux-utils/shmtunnel"
+[ -x "/home/${USER}/mklinux/mklinux-utils/shmtunnel" ] && TUNNEL="/home/${USER}/mklinux/mklinux-utils/shmtunnel"
 [ -x "./shmtunnel" ] && TUNNEL="./shmtunnel"
 which tunnel && TUNNEL="tunnel"
 

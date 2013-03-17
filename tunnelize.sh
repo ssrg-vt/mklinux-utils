@@ -9,7 +9,7 @@ echo $TUN_ADDR
 
 NICE="nice -n 20"
 TUNNEL=""
-[ -x "/home/bshelton/mklinux/mklinux-utils/tunnel" ] && TUNNEL="/home/bshelton/mklinux/mklinux-utils/tunnel"
+[ -x "/home/${USER}/mklinux/mklinux-utils/tunnel" ] && TUNNEL="/home/${USER}/mklinux/mklinux-utils/tunnel"
 [ -x "./tunnel" ] && TUNNEL="./tunnel"
 which tunnel && TUNNEL="tunnel"
 
@@ -20,4 +20,3 @@ TUN_DEV=${TUN_ID%:}
 ifconfig $TUN_DEV 10.1.2.$TUN_CPU up
 route add -net 10.1.2.0 netmask 255.255.255.0 dev $TUN_DEV
 echo "tunnel device $TUN_DEV setup on 10.1.2.$TUN_CPU"
-
