@@ -17,6 +17,9 @@ elif [[ "`hostname`" == "found" ]] ; then
 elif [[ "`hostname`" == "rosella" ]] ; then
 	MAX=47
 	NET_ADDR=0x1badaddbadadd
+elif [[ "`hostname`" == "bob" ]] ; then
+	MAX=63
+	NET_ADDR=0x1fcc000000
 else
 	die "No configuration for host `hostname`."
 fi
