@@ -16,7 +16,9 @@ typedef unsigned long pcn_kmsg_mcast_id;
 
 enum pcn_kmsg_test_op {
 	PCN_KMSG_TEST_SEND_SINGLE,
+	PCN_KMSG_TEST_SEND_PINGPONG,
 	PCN_KMSG_TEST_SEND_BATCH,
+	PCN_KMSG_TEST_SEND_BATCH_RESULT,
 	PCN_KMSG_TEST_SEND_LONG,
 	PCN_KMSG_TEST_OP_MCAST_OPEN,
 	PCN_KMSG_TEST_OP_MCAST_SEND,
@@ -26,18 +28,32 @@ enum pcn_kmsg_test_op {
 struct pcn_kmsg_test_args {
 	int cpu;
 	unsigned long mask;
+	unsigned long batch_size;
 	pcn_kmsg_mcast_id mcast_id;
+	unsigned long send_ts;
+	unsigned long ts0;
+	unsigned long ts1;
+	unsigned long ts2;
+	unsigned long ts3;
+	unsigned long rtt;
 };
+
+void print_usage(void)
+{
+	fprintf(stderr, "Usage: test_kmsg [-c cpu] [-t test_op] [-b batch_size] [-n num_tests]\n");
+}
 
 int main(int argc,  char *argv[]) 
 {
-	int opt;
+	int opt, i;
 	int test_op, rc;
 	struct pcn_kmsg_test_args test_args;
+	unsigned long num_tests = 1;
 
-	test_args.cpu = 0;
+	test_args.cpu = -1;
+	test_op = -1;
 
-	while ((opt = getopt(argc, argv, "c:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:t:b:n:")) != -1) {
 		switch (opt) {
 			case 'c':
 				test_args.cpu = atoi(optarg);
@@ -47,19 +63,64 @@ int main(int argc,  char *argv[])
 				test_op = atoi(optarg);
 				break;
 
+			case 'b':
+				test_args.batch_size = atoi(optarg);
+				break;
+
+			case 'n':
+				num_tests = atoi(optarg);
+				break;
+
 			default:
-				fprintf(stderr, "Usage: %s [-c cpu] [-t test_op]\n",
-					argv[0]);
+				print_usage();
 				exit(EXIT_FAILURE);
 		}
+	}
+
+	if (test_args.cpu == -1) {
+		fprintf(stderr, "Failed to specify CPU!\n");
+		print_usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if (test_op == -1) {
+		fprintf(stderr, "Failed to specify test operation!\n");
+		print_usage();
+		exit(EXIT_FAILURE);
 	}
 
 	printf("pcn_kmsg test syscall, cpu %d, test_op %d...\n", 
 	       test_args.cpu, test_op);
 
-	rc = syscall(__NR_popcorn_test_kmsg, test_op, &test_args);
+	for (i = 0; i < num_tests; i++) {
 
-	printf("Syscall returned %d\n", rc);
+		rc = syscall(__NR_popcorn_test_kmsg, test_op, &test_args);
+		if (rc) {
+			printf("ERROR: Syscall returned %d\n", rc);
+		}
+
+		switch (test_op) {
+			case PCN_KMSG_TEST_SEND_SINGLE:
+				printf("Single ticks: sender %lu\n",
+				       test_args.send_ts);
+
+			case PCN_KMSG_TEST_SEND_PINGPONG:
+				printf("Pingpong ticks: send %lu, isr %lu, bh %lu, handler %lu, rtt %lu\n", 
+				       test_args.ts0, test_args.ts1, test_args.ts2, test_args.ts3, test_args.rtt);
+				break;
+
+			case PCN_KMSG_TEST_SEND_BATCH:
+				printf("Batch ticks: sender %lu, receiver %lu\n",
+				       test_args.ts1, test_args.ts2);
+				break;
+
+			case PCN_KMSG_TEST_SEND_LONG:
+				printf("Long ticks: sender %lu\n",
+				       test_args.send_ts);
+				break;
+
+		}
+	}
 
 	exit(EXIT_SUCCESS);
 }
