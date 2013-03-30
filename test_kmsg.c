@@ -35,6 +35,8 @@ struct pcn_kmsg_test_args {
 	unsigned long ts1;
 	unsigned long ts2;
 	unsigned long ts3;
+	unsigned long ts4;
+	unsigned long ts5;
 	unsigned long rtt;
 };
 
@@ -92,6 +94,10 @@ int main(int argc,  char *argv[])
 	printf("pcn_kmsg test syscall, cpu %d, test_op %d...\n", 
 	       test_args.cpu, test_op);
 
+	if (test_op == PCN_KMSG_TEST_SEND_PINGPONG) {
+		printf("send,IPI,isr1,isr2,bh,bh2,handler,roundtrip\n");
+	}
+
 	for (i = 0; i < num_tests; i++) {
 
 		rc = syscall(__NR_popcorn_test_kmsg, test_op, &test_args);
@@ -105,8 +111,10 @@ int main(int argc,  char *argv[])
 				       test_args.send_ts);
 
 			case PCN_KMSG_TEST_SEND_PINGPONG:
-				printf("Pingpong ticks: send %lu, isr %lu, bh %lu, handler %lu, rtt %lu\n", 
-				       test_args.ts0, test_args.ts1, test_args.ts2, test_args.ts3, test_args.rtt);
+				printf("%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n", 
+				       test_args.send_ts, test_args.ts0, test_args.ts1, 
+				       test_args.ts2, test_args.ts3, test_args.ts4,
+				       test_args.ts5, test_args.rtt);
 				break;
 
 			case PCN_KMSG_TEST_SEND_BATCH:
