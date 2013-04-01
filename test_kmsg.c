@@ -98,6 +98,10 @@ int main(int argc,  char *argv[])
 		printf("send,IPI,isr1,isr2,bh,bh2,handler,roundtrip\n");
 	}
 
+	if (test_op == PCN_KMSG_TEST_SEND_BATCH) {
+		printf("send,sendreturn,bh,bh2,lasthandler,roundtrip\n");
+	}
+
 	for (i = 0; i < num_tests; i++) {
 
 		rc = syscall(__NR_popcorn_test_kmsg, test_op, &test_args);
@@ -118,8 +122,9 @@ int main(int argc,  char *argv[])
 				break;
 
 			case PCN_KMSG_TEST_SEND_BATCH:
-				printf("Batch ticks: sender %lu, receiver %lu\n",
-				       test_args.ts1, test_args.ts2);
+				printf("%lu,%lu,%lu,%lu,%lu,%lu\n",
+				       test_args.send_ts, test_args.ts0, test_args.ts1,
+				       test_args.ts2, test_args.ts3, test_args.rtt);
 				break;
 
 			case PCN_KMSG_TEST_SEND_LONG:
