@@ -42,7 +42,8 @@ struct pcn_kmsg_test_args {
 
 void print_usage(void)
 {
-	fprintf(stderr, "Usage: test_kmsg [-c cpu] [-t test_op] [-b batch_size] [-n num_tests]\n");
+	fprintf(stderr, "Usage: test_kmsg [-c cpu] [-t test_op] [-b batch_size]\n"
+			"[-n num_tests] [-i mcast_id]\n");
 }
 
 int main(int argc,  char *argv[]) 
@@ -53,9 +54,11 @@ int main(int argc,  char *argv[])
 	unsigned long num_tests = 1;
 
 	test_args.cpu = -1;
+	test_args.mask = 0;
+	test_args.mcast_id = -1;
 	test_op = -1;
 
-	while ((opt = getopt(argc, argv, "c:t:b:n:")) != -1) {
+	while ((opt = getopt(argc, argv, "c:t:b:n:m:i:")) != -1) {
 		switch (opt) {
 			case 'c':
 				test_args.cpu = atoi(optarg);
@@ -73,6 +76,14 @@ int main(int argc,  char *argv[])
 				num_tests = atoi(optarg);
 				break;
 
+			case 'm':
+				test_args.mask = strtoul(optarg, NULL, 0);
+				break;
+			
+			case 'i':
+				test_args.mcast_id = atoi(optarg);
+				break;
+
 			default:
 				print_usage();
 				exit(EXIT_FAILURE);
@@ -87,6 +98,18 @@ int main(int argc,  char *argv[])
 
 	if (test_op == -1) {
 		fprintf(stderr, "Failed to specify test operation!\n");
+		print_usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if ((test_op == PCN_KMSG_TEST_OP_MCAST_OPEN) && !test_args.mask) {
+		fprintf(stderr, "Failed to specify mask for mcast open!\n");
+		print_usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if ((test_op == PCN_KMSG_TEST_OP_MCAST_SEND) && (test_args.mask == -1)) {
+		fprintf(stderr, "Failed to specify group id for mcast send!\n");
 		print_usage();
 		exit(EXIT_FAILURE);
 	}
@@ -132,6 +155,15 @@ int main(int argc,  char *argv[])
 				       test_args.send_ts);
 				break;
 
+			case PCN_KMSG_TEST_OP_MCAST_OPEN:
+				printf("Opened mcast group, ID %lu\n",
+				       test_args.mcast_id);
+				break;
+
+			case PCN_KMSG_TEST_OP_MCAST_SEND:
+				printf("Sent message to mcast group %lu, sender %lu, receiver %lu\n",
+				       test_args.mcast_id, test_args.send_ts, test_args.ts0);
+				break;
 		}
 	}
 
