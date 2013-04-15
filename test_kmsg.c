@@ -56,6 +56,7 @@ int main(int argc,  char *argv[])
 	test_args.cpu = -1;
 	test_args.mask = 0;
 	test_args.mcast_id = -1;
+	test_args.batch_size = 1;
 	test_op = -1;
 
 	while ((opt = getopt(argc, argv, "c:t:b:n:m:i:")) != -1) {
@@ -121,7 +122,8 @@ int main(int argc,  char *argv[])
 		printf("send,IPI,isr1,isr2,bh,bh2,handler,roundtrip\n");
 	}
 
-	if (test_op == PCN_KMSG_TEST_SEND_BATCH) {
+	if ((test_op == PCN_KMSG_TEST_SEND_BATCH) || 
+	    (test_op == PCN_KMSG_TEST_SEND_LONG)) {
 		printf("send,sendreturn,bh,bh2,lasthandler,roundtrip\n");
 	}
 
@@ -144,16 +146,17 @@ int main(int argc,  char *argv[])
 				       test_args.ts5, test_args.rtt);
 				break;
 
+			case PCN_KMSG_TEST_SEND_LONG:
 			case PCN_KMSG_TEST_SEND_BATCH:
 				printf("%lu,%lu,%lu,%lu,%lu,%lu\n",
 				       test_args.send_ts, test_args.ts0, test_args.ts1,
 				       test_args.ts2, test_args.ts3, test_args.rtt);
 				break;
 
-			case PCN_KMSG_TEST_SEND_LONG:
-				printf("Long ticks: sender %lu\n",
-				       test_args.send_ts);
-				break;
+			//case PCN_KMSG_TEST_SEND_LONG:
+			//	printf("Long ticks: sender %lu\n",
+			//	       test_args.send_ts);
+			//	break;
 
 			case PCN_KMSG_TEST_OP_MCAST_OPEN:
 				printf("Opened mcast group, ID %lu\n",
