@@ -168,6 +168,7 @@ int main(int argc,  char *argv[])
 				       test_args.mcast_id, test_args.send_ts, test_args.ts0);
 				break;
 		}
+		usleep(20000);
 	}
 
 	exit(EXIT_SUCCESS);
