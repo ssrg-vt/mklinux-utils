@@ -229,6 +229,8 @@ int query_cmd_line (struct boot_params * bootp, char * buffer, int * buf_size, i
 }
 
 // TODO
+// TODO
+// TODO
 // todo but must return a linked list of system ram
 int system_ram()
 {

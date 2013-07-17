@@ -17,85 +17,6 @@
 #include "bootparam.h"
 #include "popcorn.h"
 
-
-// here has more sense that is the user that must allocate the address
-int generic_write_phys(unsigned long addr, char * buffer, int size)
-{
-  this function will read the ramdrive
-  and copy it to the physical memory
-}
-
-// buffer must be allocated by the user
-int generic_read_phys(unsigned long addr, char * buffer, int size)
-{
-  this function will read the ramdrive
-  and copy it to the physical memory
-}
-
-
-
-
-
-/*
- * open /dev/mem/ at the right address and copy the buffer for size bytes
- */
-int copy_ramdisk(phys_addr, buffer_to_write, size)
-{
-	int mem_fd;
-	uint64_t ramdisk_phys_addr = 0x60000000;
-	uint64_t boot_params_phys_addr = 0x0;
-	uint64_t boot_params_page, boot_params_offset;
-	void *ramdisk_base_addr, *boot_params_page_base_addr;
-	struct boot_params *boot_params_base_addr;
-	uint64_t ramdisk_size, size_read; 
-	static const char filename[] = "ramdisk.img";
-	FILE *file = fopen(filename, "rb"); 
-	
-  
-	if (!file) {
-		printf("Failed to open file containing boot args...\n");
-		return 0;
-	}
-
-	/* Open the file with the ramdisk and determine its size */
-	fseek(file, 0, SEEK_END);
-	ramdisk_size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-
-	printf("Ramdisk size is %lu bytes\n", ramdisk_size);
-
-	/* Open /dev/mem and mmap the boot arguments */
-	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-
-	if (mem_fd < 0) {
-		printf("Failed to open /dev/mem!\n");
-		return 0;
-	}
-
-	printf("Opened /dev/mem, fd %d\n", mem_fd);
-	ramdisk_base_addr = mmap(0, ramdisk_size, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, ramdisk_phys_addr);
-	printf("Ramdisk at 0x%lx, mapped addr 0x%lx\n", ramdisk_phys_addr, ramdisk_base_addr);
-
-	/* Read the ramdisk into memory */
-	size_read = fread(ramdisk_base_addr, 1, ramdisk_size, file);
-
-	if (size_read != ramdisk_size) {
-		printf("Failed to read the entire ramdisk into memory!\n");
-		return 0;
-	}
-
-	munmap(ramdisk_base_addr, ramdisk_size);
-
-	close(mem_fd);
-
-	printf("Read ramdisk into memory; setting boot params...\n");
-
-  
-  
-  
-}
-
 #define PATH_SIZE 1024
 
 //input: ramdisk file ramdisk img_addr
@@ -112,6 +33,7 @@ int main(int argc, char *argv[])
 	uint64_t ramdisk_size, size_read; 
   unsigned long phys_addr; or ramdisk_phys_addr
   char * filename, _len;
+  FILE *ramdisk_fd;
 	
 	
   if (argc != 3) {
@@ -145,29 +67,71 @@ int main(int argc, char *argv[])
 #endif
   
   /* check if the physical address is assigned to the current kernel */
+//TODO code in popcorn lib
   
-  /* check if the file exists */
-  FILE *file = fopen(filename, "rb");
-  if (!file) {
-    printf("error fopen");
+  RAMDISK PHYSICAL ADDRESS MUST BE PAGE ALIGNED!!!
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+  /* Open the file with the ramdisk and determine its size */
+  ramdisk_file = fopen(filename, "rb");
+  if (!ramdisk_file) {
+    printf("error fopen %s\n", filename);
     return 1;
   }
-  /* Open the file with the ramdisk and determine its size */
-  fseek(file, 0, SEEK_END);
-  ramdisk_size = ftell(file);
-  fseek(file, 0, SEEK_SET);
-  printf("Ramdisk size is %lu bytes\n", ramdisk_size);
-  
+  fseek(ramdisk_file, 0, SEEK_END);
+  ramdisk_size = ftell(ramdisk_file);
+  fseek(ramdisk_file, 0, SEEK_SET);
+#ifdef DEBUG
+  printf("ramdisk size %lu maximum size %lu\n",
+		  ramdisk_size,
+		  ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) );
+#endif
+  /* check if the ramdisk is too big */
   if ( ramdisk_size > 
     ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) ) {
     printf ("error ramdisksize exceeds size limit (4GB)\n");
+    fclose(ramdisk_file);
     return 1;
   }
   
 
-  write_ramdisk_to memeory
+
+	/* Open /dev/mem and mmap the boot arguments */
+	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+
+	if (mem_fd < 0) {
+		printf("Failed to open /dev/mem!\n");
+		return 1;
+	}
+
+	printf("Opened /dev/mem, fd %d\n", mem_fd);
+	ramdisk_base_addr = mmap(0, ramdisk_size,
+			PROT_READ | PROT_WRITE, MAP_SHARED,
+			mem_fd, ramdisk_phys_addr);
+	printf("Ramdisk at 0x%lx, mapped addr 0x%lx\n", ramdisk_phys_addr, ramdisk_base_addr);
+
+	/* Read the ramdisk into memory */
+	size_read = fread(ramdisk_base_addr, 1, ramdisk_size, file);
+
+	if (size_read != ramdisk_size) {
+		printf("Failed to read the entire ramdisk into memory!\n");
+		return 1;
+	}
+
+	munmap(ramdisk_base_addr, ramdisk_size);
+
+	close(mem_fd);
+
+
+
+
+  fclose(ramdisk_file);
   
-  
+///////////////////////////////////////////////////////////////////////////////
+
   /* load the boot parameters */
   boot_params_ptr = malloc(sizeof (struct boot_params));  
   if (!boot_params_ptr) {
