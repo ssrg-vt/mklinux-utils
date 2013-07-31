@@ -10,7 +10,7 @@ CPUS=`cat /proc/cpuinfo | grep processor | awk '{print $3}'`
 for CPU in $CPUS
 do
 
-  ARGS=`./boot_args.sh $CPU`
+  ARGS=`./create_bootargs.sh $CPU`
 
 if [ -n "$ARGS" ] 
 then 

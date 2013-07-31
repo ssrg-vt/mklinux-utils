@@ -1,1 +1,0 @@
-console=ttyS1,115200 console=tty0 earlyprintk=ttyS1,115200 acpi_irq_nobalance no_ipi_broadcast maxcpus=1 debug root=/dev/sda memmap=1G@1G memmap=1008M$16M noapic mklinux pci_dev_flags=32902:28688:b

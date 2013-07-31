@@ -1,4 +1,10 @@
-/* set_boot_args.c is used to set the boot arguments */
+
+// copyright Antonio Barbalace, SSRG, VT, 2013
+// initial implementation copyright Ben Shelton, SSRG, VT, 2013
+
+/*
+ * this program will be integrated in kexec (user/kernel code)
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -7,12 +13,34 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 #include "bootparam.h"
+#include "popcorn.h"
 
-#define __NR_get_boot_params_addr 313
 
-int main(int argc, char *argv[]) {
+// here has more sense that is the user that must allocate the address
+int generic_write_phys(unsigned long addr, char * buffer, int size)
+{
+  this function will read the ramdrive
+  and copy it to the physical memory
+}
 
+// buffer must be allocated by the user
+int generic_read_phys(unsigned long addr, char * buffer, int size)
+{
+  this function will read the ramdrive
+  and copy it to the physical memory
+}
+
+
+
+
+
+/*
+ * open /dev/mem/ at the right address and copy the buffer for size bytes
+ */
+int copy_ramdisk(phys_addr, buffer_to_write, size)
+{
 	int mem_fd;
 	uint64_t ramdisk_phys_addr = 0x60000000;
 	uint64_t boot_params_phys_addr = 0x0;
@@ -21,17 +49,9 @@ int main(int argc, char *argv[]) {
 	struct boot_params *boot_params_base_addr;
 	uint64_t ramdisk_size, size_read; 
 	static const char filename[] = "ramdisk.img";
-	FILE *file = fopen(filename, "rb");
-
-	if (argc != 2) {
-		printf("Invalid number of arguments specified!\n");
-		return 0;
-	}
-
-	sscanf(argv[1], "%lx", &ramdisk_phys_addr);
-
-	printf("Ramdisk phys addr is 0x%lx\n", ramdisk_phys_addr);
-
+	FILE *file = fopen(filename, "rb"); 
+	
+  
 	if (!file) {
 		printf("Failed to open file containing boot args...\n");
 		return 0;
@@ -71,41 +91,110 @@ int main(int argc, char *argv[]) {
 
 	printf("Read ramdisk into memory; setting boot params...\n");
 
-	/* Need to make a syscall to figure out where the boot_params struct is */
-	boot_params_phys_addr = syscall(__NR_get_boot_params_addr);
+  
+  
+  
+}
 
-	boot_params_page = boot_params_phys_addr & 0xfffffffffffff000ULL;
-	boot_params_offset = boot_params_phys_addr & 0xfff;
+#define PATH_SIZE 1024
 
-	printf("boot_params_page 0x%lx, boot_params_offset 0x%lx\n", 
-			boot_params_page, boot_params_offset);
+//input: ramdisk file ramdisk img_addr
+int main(int argc, char *argv[])
+{
+	int mem_fd;
+	uint64_t ramdisk_phys_addr = 0x60000000;
+	uint64_t boot_params_phys_addr = 0x0;
+	uint64_t boot_params_page, boot_params_offset;
+	void *ramdisk_base_addr, *boot_params_page_base_addr;
+	
+	struct boot_params * boot_params_ptr;
+	
+	uint64_t ramdisk_size, size_read; 
+  unsigned long phys_addr; or ramdisk_phys_addr
+  char * filename, _len;
+	
+	
+  if (argc != 3) {
+    printf("Usage: %s ADDR FILE\n"
+	   "Copies the entire FILE at physical memory ADDR.\n",
+	   argv[0]);
+    return 1;
+  }
+  
+  /*check each argument */
+  phys_addr = strtoul(argv[1], 0, 0);
+  if (phys_addr == 0) {
+    perror("conversion error or physical address 0\n");
+    return 1;
+  }
+  filename = malloc(PATH_SIZE);
+  if (filename) {
+    printf("malloc error\n");
+    return 1;
+  }
+  strncpy(filename, argv[2], PATH_SIZE);
+  _len = strlen(filename);
+  if (_len == 0 || _len > PATH_SIZE) {
+    printf("error in the file path\n");
+    free(_cret);
+    return 1;
+  }
+#ifdef DEBUG
+  printf("ramdisk phys addr 0x%lx filename %s\n",
+	 ramdisk_phys_addr, filename);
+#endif
+  
+  /* check if the physical address is assigned to the current kernel */
+  
+  /* check if the file exists */
+  FILE *file = fopen(filename, "rb");
+  if (!file) {
+    printf("error fopen");
+    return 1;
+  }
+  /* Open the file with the ramdisk and determine its size */
+  fseek(file, 0, SEEK_END);
+  ramdisk_size = ftell(file);
+  fseek(file, 0, SEEK_SET);
+  printf("Ramdisk size is %lu bytes\n", ramdisk_size);
+  
+  if ( ramdisk_size > 
+    ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) ) {
+    printf ("error ramdisksize exceeds size limit (4GB)\n");
+    return 1;
+  }
+  
 
-	/* Open /dev/mem and mmap the boot arguments */
-	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+  write_ramdisk_to memeory
+  
+  
+  /* load the boot parameters */
+  boot_params_ptr = malloc(sizeof (struct boot_params));  
+  if (!boot_params_ptr) {
+    printf("malloc error boot_params\n");
+    return 1;
+  }
+  
+  _ret = load_boot_params (boot_params_ptr);
+  if (_ret) {
+    printf("library error getting struct\n");
+    free(boot_params_ptr);
+    return 1;
+  }
 
-	if (mem_fd < 0) {
-	        printf("Failed to open /dev/mem!\n");
-	        return 0;
-	}
+  /* setting the ramdisk data in the setup header and saving them */
+  boot_params_ptr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
+  boot_params_ptr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
+  boot_params_ptr->hdr.ramdisk_size = ramdisk_size;
+  boot_params_ptr->hdr.ramdisk_magic = 0xdf;
 
-	printf("Opened /dev/mem, fd %d\n", mem_fd);
-
-	boot_params_page_base_addr = mmap(0, 2 * sizeof(struct boot_params), 
-					PROT_READ | PROT_WRITE, MAP_SHARED, 
-					mem_fd, boot_params_page);
-
-	boot_params_base_addr = boot_params_page_base_addr + boot_params_offset;
-
-	printf("Boot params at 0x%lx, mapped addr 0x%lx\n", boot_params_phys_addr, boot_params_base_addr);
-
-	printf("Location of kernel arguments: 0x%lx\n", boot_params_base_addr->hdr.cmd_line_ptr);
-
-	boot_params_base_addr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
-	boot_params_base_addr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
-	boot_params_base_addr->hdr.ramdisk_size = ramdisk_size;
-	boot_params_base_addr->hdr.ramdisk_magic = 0xdf;
-
-	printf("Boot params successfully set!\n");
-
-	return 0;
+  _ret = save_boot_params (boot_params_ptr);
+  if (_ret) {
+    printf("library error getting struct\n");
+    free(boot_params_ptr);
+    return 1;
+  }
+  
+  printf("Boot params successfully set!\n");
+  return 0;
 }
