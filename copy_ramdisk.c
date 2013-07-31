@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
   }
 
   printf("%s setting the boot parameters\n", (ret) ? "ERROR" : "SUCCESS");
-  printf("ramdisk _image 0x%x _shift 0x%x _size 0x%x _magic 0x%x\n",
+  printf("ramdisk _image 0x%8.8x _shift 0x%8.8x _size %d _magic 0x%x\n",
 		  boot_params_ptr->hdr.ramdisk_image, boot_params_ptr->hdr.ramdisk_shift,
 		  boot_params_ptr->hdr.ramdisk_size, boot_params_ptr->hdr.ramdisk_magic);
   free(boot_params_ptr);
