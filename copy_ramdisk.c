@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	uint64_t ramdisk_size, size_read; 
   unsigned long phys_addr; or ramdisk_phys_addr
   char * filename, _len;
-  FILE *ramdisk_fd;
+  FILE *ramdisk_file;
 	
 	
   if (argc != 3) {
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     return 1;
   }
   
-  /*check each argument */
+  /*check each arguments */
   phys_addr = strtoul(argv[1], 0, 0);
   if (phys_addr == 0) {
     perror("conversion error or physical address 0\n");
@@ -58,20 +58,24 @@ int main(int argc, char *argv[])
   _len = strlen(filename);
   if (_len == 0 || _len > PATH_SIZE) {
     printf("error in the file path\n");
-    free(_cret);
+    free(filename);
     return 1;
   }
 #ifdef DEBUG
-  printf("ramdisk phys addr 0x%lx filename %s\n",
+  printf("INPUT ramdisk phys addr 0x%lx filename %s\n",
 	 ramdisk_phys_addr, filename);
 #endif
   
+  /* ramdisk must be page aligned */
+  if ( (phys_addr & (PAGE_SIZE -1)) ) {
+	  printf("error ramdisk is not page aligned (page offset 0x%lx)\n",
+			  (phys_addr & (PAGE_SIZE -1)));
+	  free(filename);
+	  return 1;
+  }
   /* check if the physical address is assigned to the current kernel */
-//TODO code in popcorn lib
   
-  RAMDISK PHYSICAL ADDRESS MUST BE PAGE ALIGNED!!!
-
-
+  //TODO
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -79,6 +83,7 @@ int main(int argc, char *argv[])
   ramdisk_file = fopen(filename, "rb");
   if (!ramdisk_file) {
     printf("error fopen %s\n", filename);
+    free(filename);
     return 1;
   }
   fseek(ramdisk_file, 0, SEEK_END);
@@ -94,41 +99,50 @@ int main(int argc, char *argv[])
     ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) ) {
     printf ("error ramdisksize exceeds size limit (4GB)\n");
     fclose(ramdisk_file);
+    free(filename);
     return 1;
   }
   
-
-
-	/* Open /dev/mem and mmap the boot arguments */
-	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-
-	if (mem_fd < 0) {
-		printf("Failed to open /dev/mem!\n");
-		return 1;
-	}
-
-	printf("Opened /dev/mem, fd %d\n", mem_fd);
-	ramdisk_base_addr = mmap(0, ramdisk_size,
+  /* Open /dev/mem to write the ramdisk in */
+  mem_fd = open(FILE_MEM, O_RDWR | O_SYNC);
+  if (mem_fd < 0) {
+	  perror("Error opening " FILE_MEM);
+	  fclose(ramdisk_file);
+	  free(filename);
+	  return 1;
+  }
+  ramdisk_virt_addr = mmap(0, ramdisk_size,
 			PROT_READ | PROT_WRITE, MAP_SHARED,
 			mem_fd, ramdisk_phys_addr);
-	printf("Ramdisk at 0x%lx, mapped addr 0x%lx\n", ramdisk_phys_addr, ramdisk_base_addr);
+  if (ramdisk_virt_addr == MAP_FAILED) {
+     perror("Error memory mapping " FILE_MEM);
+     close(mem_fd);
+     fclose(ramdisk_file);
+     free(filename);
+     return 1;
+   }
 
-	/* Read the ramdisk into memory */
-	size_read = fread(ramdisk_base_addr, 1, ramdisk_size, file);
-
-	if (size_read != ramdisk_size) {
-		printf("Failed to read the entire ramdisk into memory!\n");
-		return 1;
-	}
-
-	munmap(ramdisk_base_addr, ramdisk_size);
-
+  /* Read the ramdisk into memory */
+  size_read = fread(ramdisk_virt_addr, 1, ramdisk_size, ramdisk_file);
+  if (size_read != ramdisk_size) {
+	printf("Failed to read the entire ramdisk into memory!\n");
+	munmap(ramdisk_virt_addr, ramdisk_size);
 	close(mem_fd);
-
-
-
-
+	fclose(ramdisk_file);
+	free(filename);
+	return 1;
+  }
+  _ret = munmap(ramdisk_base_addr, ramdisk_size);
+  if (_ret) {
+	  printf("Error. Failed to munmap (%d)\n", _ret);
+	  close(mem_fd);
+	  fclose(ramdisk_file);
+	  free(filename);
+	  return 1;
+  }
+  close(mem_fd);
   fclose(ramdisk_file);
+  free(filename);
   
 ///////////////////////////////////////////////////////////////////////////////
 
