@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -22,19 +23,13 @@
 //input: ramdisk file ramdisk img_addr
 int main(int argc, char *argv[])
 {
-	int mem_fd;
-	uint64_t ramdisk_phys_addr = 0x60000000;
-	uint64_t boot_params_phys_addr = 0x0;
-	uint64_t boot_params_page, boot_params_offset;
-	void *ramdisk_base_addr, *boot_params_page_base_addr;
-	
-	struct boot_params * boot_params_ptr;
-	
-	uint64_t ramdisk_size, size_read; 
-  unsigned long phys_addr; or ramdisk_phys_addr
+  int mem_fd, _ret;
+  void* ramdisk_phys_addr;
+  void* ramdisk_virt_addr;
+  struct boot_params * boot_params_ptr;
+  uint64_t ramdisk_size, size_read;
   char * filename, _len;
   FILE *ramdisk_file;
-	
 	
   if (argc != 3) {
     printf("Usage: %s ADDR FILE\n"
@@ -44,8 +39,8 @@ int main(int argc, char *argv[])
   }
   
   /*check each arguments */
-  phys_addr = strtoul(argv[1], 0, 0);
-  if (phys_addr == 0) {
+  ramdisk_phys_addr = (void*)(unsigned long)strtoul(argv[1], 0, 0);
+  if (ramdisk_phys_addr == 0) {
     perror("conversion error or physical address 0\n");
     return 1;
   }
@@ -67,9 +62,9 @@ int main(int argc, char *argv[])
 #endif
   
   /* ramdisk must be page aligned */
-  if ( (phys_addr & (PAGE_SIZE -1)) ) {
+  if ( ((unsigned long)ramdisk_phys_addr & (PAGE_SIZE -1)) ) {
 	  printf("error ramdisk is not page aligned (page offset 0x%lx)\n",
-			  (phys_addr & (PAGE_SIZE -1)));
+			  ((unsigned long)ramdisk_phys_addr & (PAGE_SIZE -1)));
 	  free(filename);
 	  return 1;
   }
@@ -90,13 +85,14 @@ int main(int argc, char *argv[])
   ramdisk_size = ftell(ramdisk_file);
   fseek(ramdisk_file, 0, SEEK_SET);
 #ifdef DEBUG
-  printf("ramdisk size %lu maximum size %lu\n",
+  printf("ramdisk size %lu sizeof %lu maximum size %lu\n",
 		  ramdisk_size,
-		  ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) );
+		  (unsigned long)sizeof(boot_params_ptr->hdr.ramdisk_size),
+		  ((1 << (sizeof(boot_params_ptr->hdr.ramdisk_size) * 8)) -1) );
 #endif
   /* check if the ramdisk is too big */
   if ( ramdisk_size > 
-    ((1 << (sizeof((struct setup_header).ramdisk_size) * 8)) -1) ) {
+    ((1 << (sizeof(boot_params_ptr->hdr.ramdisk_size) * 8)) -1) ) {
     printf ("error ramdisksize exceeds size limit (4GB)\n");
     fclose(ramdisk_file);
     free(filename);
@@ -113,7 +109,7 @@ int main(int argc, char *argv[])
   }
   ramdisk_virt_addr = mmap(0, ramdisk_size,
 			PROT_READ | PROT_WRITE, MAP_SHARED,
-			mem_fd, ramdisk_phys_addr);
+			mem_fd, (unsigned long)ramdisk_phys_addr);
   if (ramdisk_virt_addr == MAP_FAILED) {
      perror("Error memory mapping " FILE_MEM);
      close(mem_fd);
@@ -132,7 +128,7 @@ int main(int argc, char *argv[])
 	free(filename);
 	return 1;
   }
-  _ret = munmap(ramdisk_base_addr, ramdisk_size);
+  _ret = munmap(ramdisk_virt_addr, ramdisk_size);
   if (_ret) {
 	  printf("Error. Failed to munmap (%d)\n", _ret);
 	  close(mem_fd);
@@ -142,6 +138,9 @@ int main(int argc, char *argv[])
   }
   close(mem_fd);
   fclose(ramdisk_file);
+
+  printf("SUCCESS writing %s at %p\n",
+		  filename, ramdisk_phys_addr);
   free(filename);
   
 ///////////////////////////////////////////////////////////////////////////////
@@ -161,8 +160,10 @@ int main(int argc, char *argv[])
   }
 
   /* setting the ramdisk data in the setup header and saving them */
-  boot_params_ptr->hdr.ramdisk_image = ramdisk_phys_addr & 0xffffffff;
-  boot_params_ptr->hdr.ramdisk_shift = (ramdisk_phys_addr >> 32);
+  boot_params_ptr->hdr.ramdisk_image =
+		  (unsigned long)ramdisk_phys_addr & (unsigned long)(__u32)~0U;
+  boot_params_ptr->hdr.ramdisk_shift =
+		  (unsigned long)ramdisk_phys_addr >> (sizeof(__u32) * 8);
   boot_params_ptr->hdr.ramdisk_size = ramdisk_size;
   boot_params_ptr->hdr.ramdisk_magic = 0xdf;
 
@@ -172,7 +173,8 @@ int main(int argc, char *argv[])
     free(boot_params_ptr);
     return 1;
   }
-  
-  printf("Boot params successfully set!\n");
+
+  free(boot_params_ptr);
+  printf("SUCCESS setting the boot parameters\n");
   return 0;
 }
