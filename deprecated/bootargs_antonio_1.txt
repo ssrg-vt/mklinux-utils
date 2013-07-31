@@ -1,0 +1,1 @@
+console=ttyS0,115200 earlyprintk=ttyS0,115200 acpi_irq_nobalance no_ipi_broadcast debug memmap=1G@1G memmap=1008M$16M mem=2G mklinux pci_dev_flags=0x8086:0x10c9:b,0x102b:0x0532:b,0x1002:0x5a10:b,0x1002:0x4390:b,0x1002:0x4396:b,0x1002:0x4397:b,0x1002:0x4398:b,0x1002:0x4399:b lapic_timer=2000030 present_mask=2 vty_offset=0x200000000
