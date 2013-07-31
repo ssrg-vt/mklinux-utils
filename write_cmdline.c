@@ -4,6 +4,11 @@
 /* write_cmdline
  * simple write (kernel) cmdline utility
  * note this IS NOT equivalent to /proc/cmdline
+ *
+ * TODO
+ * instead of wr_cmdline filename adopt the following:
+ * $ wr_cmdline -f file.txt
+ * $ wr_cmdline "cmd line"
  */
 
 #include <stdio.h>
@@ -17,67 +22,97 @@
 #include "bootparam.h"
 #include "popcorn.h"
 
+#define PATH_SIZE 1024
+
 #define CMDLINE_SIZE 2048
 
 int main(int argc, char *argv[])
 {
   struct boot_params * bootp;
-  int cmd_line_size;
-  char * cmd_line_ptr;
-  int _ret;
+  char * filename;
+  char * cmdline_ptr;
+  int cmdline_size;
+  int _ret, _len, size_read;
+  FILE * cmdline_file;
   
   if (argc != 2) {
     printf("Usage: %s FILE\n"
-	   "Copies the entire FILE at physical memory ADDR.\n",
+	   "Copies the content of FILE to the cmd_line_ptr buffer in phys space.\n",
 	   argv[0]);
     return 1;
   }
   
-  
-  TODO TODO, proposal:
-  wr_cmdline -f file.txt <- use this right now
-  wr_cmdline "cmd line"
-  
-  
+  /* check the args*/
+  filename = malloc(PATH_SIZE);
+  if (!filename) {
+	  printf("malloc error for filename (%d)\n", PATH_SIZE);
+	  return 1;
+  }
+  strncpy(filename, argv[2], PATH_SIZE);
+  _len = strlen(filename);
+  if (_len == 0 || _len > PATH_SIZE) {
+    printf("error in the file path\n");
+    free(filename);
+    return 1;
+  }
+
+  /* Open the file with the ramdisk and determine its size */
+  cmdline_file = fopen(filename, "rb");
+  if (!cmdline_file) {
+    printf("error fopen %s\n", filename);
+    free(filename);
+    return 1;
+  }
+  fseek(cmdline_file, 0, SEEK_END);
+  cmdline_size = ftell(cmdline_file);
+  fseek(cmdline_file, 0, SEEK_SET);
+
+  /* load the struct boot_params from /dev/mem */
   bootp = malloc(sizeof (struct boot_params));  
   if (!bootp) {
     printf("malloc error boot_params\n");
+    fclose(cmdline_file);
+    free(filename);
     return 1;
   }
-  
+
+  /* read the cmdline into memory */
+  cmdline_ptr = malloc(cmdline_size);
+  if (!cmdline_ptr) {
+    printf("malloc error cmd_line_ptr\n");
+    free(bootp);
+    fclose(cmdline_file);
+    free(filename);
+    return 1;
+  }
+  size_read = fread(cmdline_ptr, 1, cmdline_size, cmdline_file);
+  if (size_read != cmdline_size) {
+  	printf("Failed to read the entire cmdline into memory!\n");
+  	free(cmdline_ptr);
+    free(bootp);
+    fclose(cmdline_file);
+    free(filename);
+  	return 1;
+  }
+  fclose(cmdline_file);
+  free(filename);
+
+  /* loading the command line in phys memory */
   _ret = load_boot_params (bootp);
   if (_ret) {
     printf("library error getting struct\n");
     free(bootp);
     return 1;
   }
-   
-   
-   pipe in or read a file
-// TODO   populate the cmd line buffer before writing
-   
-  cmd_line_size = CMDLINE_SIZE;
-  cmd_line_ptr = malloc(CMDLINE_SIZE);
-  if (!cmd_line_ptr) {
-    printf("malloc error cmd_line_ptr\n");
-    free (bootp);
-    return 1;
-  }
-  memset(cmd_line_ptr, 0, cmd_line_size);
-
-  char ccmd[] = "mimmo is mimmo and you?";
-  cmd_line_size = sizeof(ccmd);
-  
-  _ret = save_cmd_line (bootp, ccmd, &cmd_line_size);
+  _ret = save_cmd_line (bootp, cmdline_ptr, &cmdline_size);
   if (_ret) {
     printf("library error saving the cmd line\n");
-    free(cmd_line_ptr);
+    free(cmdline_ptr);
     free(bootp);
     return 1;
   }
-  printf("%s\n", ccmd);
   
-  free(cmd_line_ptr);
+  free(cmdline_ptr);
   free(bootp);
   return 0;
 }
