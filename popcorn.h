@@ -17,6 +17,9 @@ static inline unsigned long get_boot_params_addr () {
   return syscall(__NR_get_boot_params_addr);
 }
 
+#define MAX_RAMDISK_SIZE \
+		((1UL << (unsigned long)(sizeof(boot_params_ptr->hdr.ramdisk_size) * 8)) -1)
+
 //from arch/x86/boot/header.S
 #define SETUP_HDR_SIGN  "HdrS"
 #define SETUP_HDR_MINVER 0x0202

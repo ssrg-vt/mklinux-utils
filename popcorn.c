@@ -232,6 +232,7 @@ int query_cmd_line (struct boot_params * bootp, char * buffer, int * buf_size, i
 // TODO
 // TODO
 // todo but must return a linked list of system ram
+/*
 int system_ram()
 {
   int ok = 0;
@@ -287,7 +288,7 @@ int system_ram()
 #ifdef ALIGN4KB
 		start &= ~0x0FFF;
 		end &= ~0x0FFF;
-#endif /* !ALIGN4KB */ 
+#endif
 	
     //add to list
 		amemres[im].start = start; 
@@ -302,3 +303,4 @@ int system_ram()
   maxpresentmem = total;	
   return 0;
 }
+*/

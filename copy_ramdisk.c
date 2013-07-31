@@ -23,7 +23,7 @@
 //input: ramdisk file ramdisk img_addr
 int main(int argc, char *argv[])
 {
-  int mem_fd, _ret;
+  int mem_fd, _ret, ret;
   void* ramdisk_phys_addr;
   void* ramdisk_virt_addr;
   struct boot_params * boot_params_ptr;
@@ -45,8 +45,8 @@ int main(int argc, char *argv[])
     return 1;
   }
   filename = malloc(PATH_SIZE);
-  if (filename) {
-    printf("malloc error\n");
+  if (!filename) {
+    printf("malloc error for filename (%d)\n", PATH_SIZE);
     return 1;
   }
   strncpy(filename, argv[2], PATH_SIZE);
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
   }
 #ifdef DEBUG
   printf("INPUT ramdisk phys addr 0x%lx filename %s\n",
-	 ramdisk_phys_addr, filename);
+	 (unsigned long)ramdisk_phys_addr, filename);
 #endif
   
   /* ramdisk must be page aligned */
@@ -88,11 +88,10 @@ int main(int argc, char *argv[])
   printf("ramdisk size %lu sizeof %lu maximum size %lu\n",
 		  ramdisk_size,
 		  (unsigned long)sizeof(boot_params_ptr->hdr.ramdisk_size),
-		  ((1 << (sizeof(boot_params_ptr->hdr.ramdisk_size) * 8)) -1) );
+		  MAX_RAMDISK_SIZE);
 #endif
   /* check if the ramdisk is too big */
-  if ( ramdisk_size > 
-    ((1 << (sizeof(boot_params_ptr->hdr.ramdisk_size) * 8)) -1) ) {
+  if ( ramdisk_size > MAX_RAMDISK_SIZE ) {
     printf ("error ramdisksize exceeds size limit (4GB)\n");
     fclose(ramdisk_file);
     free(filename);
@@ -139,8 +138,8 @@ int main(int argc, char *argv[])
   close(mem_fd);
   fclose(ramdisk_file);
 
-  printf("SUCCESS writing %s at %p\n",
-		  filename, ramdisk_phys_addr);
+  printf("SUCCESS writing %s at %p size %lu\n",
+		  filename, ramdisk_phys_addr, ramdisk_size);
   free(filename);
   
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,7 +173,29 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  ret = 0;
+  /* re reading to check */
+  memset(boot_params_ptr, (~0), sizeof (struct boot_params));
+  _ret = load_boot_params (boot_params_ptr);
+  if (_ret) {
+    printf("library error getting struct\n");
+    free(boot_params_ptr);
+    return 1;
+  }
+  if (boot_params_ptr->hdr.ramdisk_image !=
+		  ((unsigned long)ramdisk_phys_addr & (unsigned long)(__u32)~0U) ||
+	boot_params_ptr->hdr.ramdisk_shift !=
+		  		  ((unsigned long)ramdisk_phys_addr >> (sizeof(__u32) * 8)) ||
+	boot_params_ptr->hdr.ramdisk_size != ramdisk_size ||
+	boot_params_ptr->hdr.ramdisk_magic != 0xdf ) {
+	  //printf("boot params do not match, error\n");
+	  ret = 1;
+  }
+
+  printf("%s setting the boot parameters\n", (ret) ? "ERROR" : "SUCCESS");
+  printf("ramdisk _image 0x%x _shift 0x%x _size 0x%x _magic 0x%x\n",
+		  boot_params_ptr->hdr.ramdisk_image, boot_params_ptr->hdr.ramdisk_shift,
+		  boot_params_ptr->hdr.ramdisk_size, boot_params_ptr->hdr.ramdisk_magic);
   free(boot_params_ptr);
-  printf("SUCCESS setting the boot parameters\n");
-  return 0;
+  return ret;
 }
