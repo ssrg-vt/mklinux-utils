@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	  printf("malloc error for filename (%d)\n", PATH_SIZE);
 	  return 1;
   }
-  strncpy(filename, argv[2], PATH_SIZE);
+  strncpy(filename, argv[1], PATH_SIZE);
   _len = strlen(filename);
   if (_len == 0 || _len > PATH_SIZE) {
     printf("error in the file path\n");
