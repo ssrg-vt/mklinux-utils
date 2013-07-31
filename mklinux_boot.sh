@@ -84,6 +84,9 @@ then
 fi
 _CMDLINE=`./rd_cmdline`
 #echo "$_CMDLINE"
+echo "$BOOT_ARGS" >> $LOGFILE
+cat $BOOT_ARGS >> $LOGFILE
+echo "rd_cmdline" >> $LOGFILE
 echo "$_CMDLINE" >> $LOGFILE
 
 echo "MKLINUX: loading $KERNEL at address $BOOT_ADDR"
