@@ -4,4 +4,4 @@
 
 rm boot_args_*.args
 rm boot_args_*.param
-
+rm *.log

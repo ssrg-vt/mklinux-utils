@@ -10,6 +10,8 @@ RAMDISK_ADDR=$5
 RAMDISK_FILE="ramdisk.img"
 #RAMDISK=$6
 
+LOGFILE="mklinux_boot.log"
+
 # check the user is root
 if [[ "$USER" != "root" ]] ; then
 	echo "ERROR: only root can boot secondary kernels."
@@ -54,14 +56,19 @@ then
   exit 1
 fi
 
+# start logging
+date >> $LOGFILE
+
 echo "MKLINUX: try loading $RAMDISK_FILE at address $RAMDISK_ADDR"
 RESULT=`./copy_ramdisk $RAMDISK_ADDR $RAMDISK_FILE 2>&1` 
 if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: copy_ramdisk output:"
   echo "$RESULT"
+  echo "$RESULT" >> $LOGFILE
   exit 1
 fi
+echo "$RESULT" >> $LOGFILE
 
 echo "MKLINUX: setting boot arguments to $BOOT_ARGS"
 RESULT=`./wr_cmdline $BOOT_ARGS 2>&1`
@@ -69,10 +76,15 @@ if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: wr_cmdline output:"
   echo "$RESULT"
-  ./rd_cmdline
+  echo "$RESULT" >> $LOGFILE
+  _CMDLINE=`./rd_cmdline`
+  echo "$_CMDLINE"
+  echo "$_CMDLINE" >> $LOGFILE
   exit 1
 fi
-#./rd_cmdline
+_CMDLINE=`./rd_cmdline`
+#echo "$_CMDLINE"
+echo "$_CMDLINE" >> $LOGFILE
 
 echo "MKLINUX: loading $KERNEL at address $BOOT_ADDR"
 RESULT=`kexec -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
@@ -80,8 +92,10 @@ if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (loading kernel into memory):"
   echo "$RESULT"
+  echo "$RESULT" >> $LOGFILE
   exit 1
 fi
+echo "$RESULT" >> $LOGFILE
 
 echo "MKLINUX: booting kernel on CPU $CPU"
 RESULT=`kexec -d -a $BOOT_ADDR -b $CPU 2>&1`
@@ -89,7 +103,9 @@ if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (starting a secondary kernel):"
   echo "$RESULT"
+  echo "$RESULT" >> $LOGFILE
   exit 1
 fi
+echo "$RESULT" >> $LOGFILE
 
 echo "MKLINUX: started $KERNEL at $BOOT_ADDR on $CPU ramdisk $RAMDISK_FILE at $RAMDISK_ADDR"
