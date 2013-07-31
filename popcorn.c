@@ -204,8 +204,8 @@ int query_cmd_line (struct boot_params * bootp, char * buffer, int * buf_size, i
     memcpy(buffer, cmd_line_ptr, *buf_size);
   }
   else if (action == ACTION_SAVE) {
-    if (*buf_size > cmd_line_strlen)
-      *buf_size = cmd_line_strlen;
+    if (*buf_size > cmd_line_size)
+      *buf_size = cmd_line_size;
     /* first remove the previous content then memcpy */
     memset(cmd_line_ptr, 0, cmd_line_size);
     memcpy(cmd_line_ptr, buffer, *buf_size);
