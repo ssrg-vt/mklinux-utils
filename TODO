@@ -1,0 +1,17 @@
+TODO LIST 
+
+3  review/integrate tunnelize scripts
+4a code review mpart, is not throwing any error, errors are necesary in order to block the user boot a buggy system
+4b code review mpart, in order to include all the designed static partitioned algorithms
+4c review generate_all in order to check for eventual errors in the system and in the parameter before
+5  add mpart, tunnel and kcore to the makefile
+7a fix the guide online
+7b update the website with the new version
+8a fix tinyhttpd in order to use the popcorn graphic
+8b add tinyhttpd to the online guide 
+
+WISH LIST
+
+1  integrate copy_ramdisk, rw_cmdline functionalities in kexec (keep rw_cmdline as an utility)
+2  kernel must return the information about how many other kernels ar present in the single system image (from /proc/krninfo)
+
