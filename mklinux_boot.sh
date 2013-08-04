@@ -8,9 +8,43 @@ CPU=$3
 BOOT_ADDR=$4
 RAMDISK_ADDR=$5
 RAMDISK_FILE="ramdisk.img"
+LOGFILE="mklinux_boot.log"
+
+if [ "$#" == "1" ] ; then
+   SETUP_FILE="./boot_args_${1}.param"
+   LOGFILE="mklinux_boot_${1}.log"
+
+   if [ -f $SETUP_FILE ] ; then
+      KERNEL=`cat   $SETUP_FILE     | awk '{ print $1 }'`
+      BOOT_ARGS=`cat  $SETUP_FILE   | awk '{ print $2 }'`
+      CPU=`cat $SETUP_FILE          | awk '{ print $3 }'`
+      BOOT_ADDR=`cat $SETUP_FILE    | awk '{ print $4 }'`
+      RAMDISK_ADDR=`cat $SETUP_FILE | awk '{ print $5 }'`
+
+      PARAMS=`cat $SETUP_FILE`
+      echo PARAMS=$PARAMS
+      echo KERNEL=$KERNEL
+      echo BOOT_ARGS=$BOOT_ARGS
+      echo CPU=$CPU
+      echo BOOT_ADDR=$BOOT_ADDR
+      echo RAMDISK_ADDR=$RAMDISK_ADDR
+      echo RAMDISK_FILE=$RAMDISK_FILE
+   else
+	echo " Setup file  $SETUP_FILE missing .. quitting \n"
+	exit
+   fi
+fi
+
+if [ ! -f ./$BOOT_ARGS ] ; then 
+	echo " Boot Args file  $BOOT_ARGS missing .. quitting \n"
+	exit
+fi
+ 
+
+#exit
+ 
 #RAMDISK=$6
 
-LOGFILE="mklinux_boot.log"
 
 # check the user is root
 if [[ "$USER" != "root" ]] ; then

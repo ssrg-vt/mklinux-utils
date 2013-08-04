@@ -2,10 +2,11 @@
 
 VTY_ADDR=0x1ffc000000
 TUN_ADDR=0x1fec000000 # gigi
+#TUN_ADDR=0x7a0000000 # phil
 #TUN_ADDR=0xfbc000000 # found
 REPRESENTATIVE=`cat /proc/cpuinfo | grep processor | awk '{print $3}' | head -n 1`
 TUN_CPU=$(( $REPRESENTATIVE + 1 ))
-echo $TUN_ADDR
+echo tun_addr = $TUN_ADDR tun_cpu = $TUN_CPU 
 
 #NICE="nice -n 20"
 TUNNEL=""
