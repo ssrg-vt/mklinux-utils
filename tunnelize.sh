@@ -15,8 +15,13 @@ TUNNEL=""
 which tunnel && TUNNEL="tunnel"
 
 $TUNNEL $TUN_ADDR $REPRESENTATIVE &> /dev/null &
-TUN_ID=`ip -f inet link show |  awk '/tun[0-9]:/ {print $2}' | tail -n 1`
-#TUN_DEV=${TUN_ID#tun}
+TUN_ID=""
+while [ -z $TUN_ID ]
+do
+  TUN_ID=`ip -f inet link show |  awk '/tun[0-9]:/ {print $2}' | tail -n 1`
+done
+
+#TUN_DEV=${TUN_ID#tun}i
 TUN_DEV=${TUN_ID%:}
 echo "ifconfig $TUN_DEV 10.1.2.$TUN_CPU up"
 ifconfig $TUN_DEV 10.1.2.$TUN_CPU up

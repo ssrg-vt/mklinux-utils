@@ -1,0 +1,50 @@
+
+Antonio Barbalace, SSRG VT, August 2013
+
+HOW TO RUN Popcorn Linux
+===============================================================================
+
+COMPATILITY LIST
+-------------------------------------------------------------------------------
+
+Currently only Linux kernel 3.2.14 is supported.
+We actively support only Intel x86 64bit processors.
+To install Popcorn YOU MUST run a Linux kernel with the option CONFIG_NUMA
+enabled.
+
+Popcorn Linux INSTALLATION INSTRUCTIONS
+-------------------------------------------------------------------------------
+
+0.  Download and untar vanilla Linux 3.2.14 from http://www.kernel.org
+1.  Download the most recently patches from http://www.popcornlinux.org
+2.  Apply the patches to the kernel sources
+3.  Install the kernel (you can use the ./kinst.sh script included in the patch)
+4.  change directory to mklinux-utils installation directory
+5.  ./wipeout_all.sh
+6.  make clean
+7.  make all
+8.  ./generate_all.sh
+9   ./create_elf.sh ../path-to-kernel/vmlinux
+10. Annotate boot_args_0.args
+11. Apply them in the --append paramter in the boot loader (grub/lilo) or
+    alternatively add them manually at the boot
+12. have you ramdisk available and copy in the mklinux-utils directory
+13. name it 'ramdisk.img'
+14. Download untar and install our version of kexec (mklinux-kexec)
+15. you are ready to reboot in Popcorn Linux!
+
+Popcorn Linux BOOTING INSTRUCTIONS
+-------------------------------------------------------------------------------
+
+0.  At the bootloader choose the right kernel and before booting check if
+    the kernel command line arguments (above --append) match boot_args_0.args
+1.  when the kernel is up, login as root
+2.  change directory to mklinux-utils
+3.  load each of the other kernels simply by './mklinux-boot.sh N' where N is
+    the kernel ID of the one you are gonna to load
+
+Popcorn Linux CONNECTING TO ANOTHER KERNEL
+-------------------------------------------------------------------------------
+
+TODO 
+

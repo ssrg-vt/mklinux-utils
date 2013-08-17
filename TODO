@@ -1,6 +1,5 @@
 TODO LIST 
 
-3  review/integrate tunnelize scripts
 4a code review mpart, is not throwing any error, errors are necesary in order to block the user boot a buggy system
 4b code review mpart, in order to include all the designed static partitioned algorithms
 4c review generate_all in order to check for eventual errors in the system and in the parameter before

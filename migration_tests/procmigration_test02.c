@@ -46,7 +46,8 @@ void do_a_test(long int mem_sz) {
     int total_cpus = sysconf(_SC_NPROCESSORS_CONF) - 1;
     char buf[512] = {0};
 #ifdef POPCORN
-    int cpu_dest = (cpu_src +1);
+    int cpu_dest = 2;
+//int cpu_dest = (cpu_src +1);
 #else
     int cpu_dest = (cpu_src +1) % total_cpus;
 #endif
