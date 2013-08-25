@@ -163,6 +163,21 @@ int main(int argc,  char *argv[])
 		printf("send,sendreturn,bh,bh2,lasthandler,roundtrip\n");
 	}
 
+	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT) {
+	  printf("Spin START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
+	}
+	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT_IDLE) {
+	  printf("Idle START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
+	}
+	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT_SCHED) {
+	  printf("Sched START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
+	}
+	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT_SCHED_IDLE) {
+	  printf("Sched_Idle,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
+	}
+
+
+
 	for (i = 0; i < num_tests; i++) {
 
 		if ((num_tests > 1 )
@@ -179,43 +194,16 @@ int main(int argc,  char *argv[])
 
 		switch (test_op) {
 			case PCN_KMSG_TRIGGER_CPU_WAIT:
-				printf("Fast Loop Round trip time :"
-				       " %lu targ_cpu %d,"
-				       "rep_cpu %d,rep_val %d\n",
-				       test_args.send_ts,
-				       (int)test_args.ts0,
-				       (int)test_args.ts1,
-				       (int)test_args.ts2 );
-				break;
-
 			case PCN_KMSG_TRIGGER_CPU_WAIT_IDLE:
-				printf("Idle Round trip time :"
-				       "%lu targ_cpu %d\n"
-				       "rep_cpu %d,rep_val %d\n",
-				       test_args.send_ts,
-				       (int)test_args.ts0,
-				       (int)test_args.ts1,
-				       (int)test_args.ts2 );
-				break;
-
-			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED:
-				printf("Sched Round trip time :"
-				       "%lu targ_cpu %d\n"
-				       "rep_cpu %d,rep_val %d\n",
-				       test_args.send_ts,
-				       (int)test_args.ts0,
-				       (int)test_args.ts1,
-				       (int)test_args.ts2 );
-				break;
-
+			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED:		
 			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED_IDLE:
-				printf("Sched_Idle Round trip time :"
-				       "%lu targ_cpu %d\n"
-				       "rep_cpu %d,rep_val %d\n",
+			        printf("%010lu,%02d,%02d,%08x,%08x,%lu\n",
 				       test_args.send_ts,
 				       (int)test_args.ts0,
 				       (int)test_args.ts1,
-				       (int)test_args.ts2 );
+				       (int)test_args.ts2, 
+				       (int)test_args.ts3,
+				       test_args.rtt);
 				break;
 
 			case PCN_KMSG_TEST_SEND_SINGLE:
@@ -224,9 +212,14 @@ int main(int argc,  char *argv[])
 
 			case PCN_KMSG_TEST_SEND_PINGPONG:
 				printf("%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu\n", 
-				       test_args.send_ts, test_args.ts0, test_args.ts1, 
-				       test_args.ts2, test_args.ts3, test_args.ts4,
-				       test_args.ts5, test_args.rtt);
+				       test_args.send_ts, 
+				       test_args.ts0-test_args.send_ts, 
+				       test_args.ts1-test_args.send_ts, 
+				       test_args.ts2-test_args.send_ts, 
+				       test_args.ts3-test_args.send_ts, 
+				       test_args.ts4-test_args.send_ts, 
+				       test_args.ts5-test_args.send_ts, 
+				       test_args.rtt-test_args.send_ts);
 				break;
 
 			case PCN_KMSG_TEST_SEND_LONG:

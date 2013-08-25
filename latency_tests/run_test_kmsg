@@ -1,0 +1,31 @@
+#!/bin/bash
+# script to run the latency tests for each cpu
+
+#./test_kmsg
+#Failed to specify CPU!
+#Usage: test_kmsg [-c cpu] [-t test_op] [-b batch_size]
+#[-n num_tests] [-i mcast_id]
+# Test Ops :-
+#PCN_KMSG_TEST_SEND_SINGLE 0 
+#PCN_KMSG_TEST_SEND_PINGPONG 1 
+#PCN_KMSG_TEST_SEND_BATCH 2 
+#PCN_KMSG_TEST_SEND_BATCH_RESULT 3 
+#PCN_KMSG_TEST_SEND_LONG 4 
+#PCN_KMSG_TEST_OP_MCAST_OPEN 5 
+#PCN_KMSG_TEST_OP_MCAST_SEND 6 
+#PCN_KMSG_TEST_OP_MCAST_CLOSE 7 
+#PCN_KMSG_TEST_CPU_WAIT 8 
+#PCN_KMSG_TRIGGER_CPU_WAIT_IDLE 9 
+#PCN_KMSG_TRIGGER_CPU_WAIT_SCHED 10 
+#PCN_KMSG_TRIGGER_CPU_WAIT_SCHED_IDLE 11 
+#PCN_KMSG_TRIGGER_CPU_WAIT 12 
+Tests=200
+for Test in  9 10 11 12 1; do
+   echo "################test = $test###########"
+   for cpu in 1 2 3 4 5 6 7  ; do
+	echo "###########cpu = $cpu#############"
+ 	./test_kmsg -c $cpu -t $Test -n $Tests
+    done
+done
+exit
+
