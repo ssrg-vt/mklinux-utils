@@ -32,6 +32,7 @@ enum pcn_kmsg_test_op {
 
 struct pcn_kmsg_test_args {
 	int cpu;
+	int use_thread;
 	unsigned long mask;
 	unsigned long batch_size;
 	pcn_kmsg_mcast_id mcast_id;
@@ -87,12 +88,14 @@ int main(int argc,  char *argv[])
 	unsigned long num_tests = 1;
 
 	test_args.cpu = -1;
+	test_args.use_thread = 0;
 	test_args.mask = 0;
+	test_args.use_thread = 0;
 	test_args.mcast_id = -1;
 	test_args.batch_size = 1;
 	test_op = -1;
 
-	while ((opt = getopt(argc, argv, "hc:t:b:n:m:i:")) != -1) {
+	while ((opt = getopt(argc, argv, "hc:t:b:n:m:i:u")) != -1) {
 		switch (opt) {
 			case 'h':
 			        print_usage();
@@ -119,6 +122,9 @@ int main(int argc,  char *argv[])
 
 			case 'i':
 				test_args.mcast_id = atoi(optarg);
+				break;
+			case 'u':
+			        test_args.use_thread = 1;
 				break;
 
 			default:
@@ -180,7 +186,8 @@ int main(int argc,  char *argv[])
 
 	for (i = 0; i < num_tests; i++) {
 
-		if ((num_tests > 1 )
+		if (    (num_tests > 1 ) 
+		        && (test_args.use_thread == 0)
                         && (test_op == PCN_KMSG_TRIGGER_CPU_WAIT)) {
 			rc = syscall(__NR_popcorn_test_kmsg,
 	                               PCN_KMSG_TEST_CPU_WAIT,
