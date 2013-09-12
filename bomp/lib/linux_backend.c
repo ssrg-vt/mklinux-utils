@@ -32,7 +32,8 @@
 #include "backend.h"
 #include "omp.h"
 
-#define DEBUG_MALLOC_BACKEND
+//#define DEBUG_MALLOC_BACKEND
+#undef DEBUG_MALLOC_BACKEND
 #ifdef DEBUG_MALLOC_BACKEND
      /* Prototypes for __malloc_hook, __free_hook */
      #include <malloc.h>
@@ -731,6 +732,7 @@ int backend_start_func (void * args)
 // from glibc
 #define CLONE_SIGNAL            (CLONE_SIGHAND | CLONE_THREAD)
 
+// TODO liberate the memory everytime we are creating new threads
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
 {
 //    pthread_t pthread;
@@ -831,7 +833,6 @@ void * ____pthread_getspecific (backend_key_t key)
      usual case.  */
   if ( key < PTHREAD_KEY_2NDLEVEL_SIZE ) {
     data = &(THREAD_SELF->specific_1stblock[key]);
-    printf("normal case %p %p\n", THREAD_SELF, data);
   }else
     {
       /* Verify the key is sane.  */
@@ -868,9 +869,9 @@ void * ____pthread_getspecific (backend_key_t key)
 	result = data->data = NULL;
     }
 
-printf("get_specific %d(%ld) %p [%p]\n", key, data->seq, result, THREAD_SELF);
+/*printf("get_specific %d(%ld) %p [%p]\n", key, data->seq, result, THREAD_SELF);
 sleep(1);
-  return result;
+*/  return result;
 }
 
 void *backend_get_tls(void)
@@ -946,7 +947,7 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
      stale data.  */
   level2->seq = seq;
   level2->data = (void *) value;
-        printf("set_specific %u(%ld) %p [%p]\n", key, level2->seq, level2->data, self);
+  //      printf("set_specific %u(%ld) %p [%p]\n", key, level2->seq, level2->data, self);
 
   return 0;
 }
