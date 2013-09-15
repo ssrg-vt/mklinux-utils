@@ -1,3 +1,8 @@
+// shmtunnel.c
+// Shelton's modified version of tunnel.c to support shmtunnel driver in krn
+// this application only open the shared memory tunnel is not doing anything else
+// (cleaned by Antonio and Saif c 2013)
+
 /* tunnel.c is used to attach a TUN/TAP interface between two kernels
    through shared memory. */
 
@@ -17,8 +22,6 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-/* Note that the tun_open_common stuff comes from the 'vtun' project
-   version 3.0.3 */
 
 /* 
  * Allocate TUN device, returns opened fd. 
@@ -100,15 +103,6 @@ failed:
 	return -1;
 }
 
-
-
-#define DEBUGF logging
-
-int logging( const char namefmt[], ...) {
-	//  printf(args);
-	return 0;
-}
-
 #define MAX_IP 64
 #define MAX_VERBOSE 0x8000
 #define MAX_BUFFER 0x1000
@@ -125,60 +119,10 @@ typedef struct ip_tunnel {
 	char buffer [MAX_BUFFER];
 } ip_tunnel_t;
 
-
-static ip_tunnel_t * open_shm(void* addr, int me) {
-	int mem_fd;
-	void* physical;  
-	ip_tunnel_t * tun_area;
-
-	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
-	if (mem_fd < 0) {
-		perror("open /dev/mem error");
-		exit(0);
-	}
-
-	long delta = sysconf(_SC_PAGE_SIZE);
-
-	printf("mmap(%p, %ld, 0x%x, 0x%x, %d, 0x%lx)\n",
-			(void*) 0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (unsigned long)addr); 
-	//(void*) 0, (delta * 4), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr); 
-	physical = mmap(0, (sizeof(ip_tunnel_t) * MAX_IP), PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
-	//physical = mmap(0, delta * 4, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, (off_t)addr);
-	printf("base address %p\n", physical);
-	if ((unsigned long) physical == -1) {
-		perror("mmap");
-		exit(0);
-	}
-
-	tun_area = (ip_tunnel_t *) physical;
-	tun_area[me].content_size = 0;
-	tun_area[me].magic = MAGIC_NUMBER;
-	tun_area[me].lock = 0; // lock is for multi writer
-
-	return tun_area;
-}
-
 int tun_open(char *dev) { return shmtun_open_common(dev); }
 
 int tun_close(int fd, char *dev) { return close(fd); }
 int tap_close(int fd, char *dev) { return close(fd); }
-
-/* Read/write frames from TUN device */
-int tun_write(int fd, char *buf, int len) { return write(fd, buf, len); }
-int tap_write(int fd, char *buf, int len) { return write(fd, buf, len); }
-
-int tun_read(int fd, char *buf, int len) { return read(fd, buf, len); }
-int tap_read(int fd, char *buf, int len) { return read(fd, buf, len); }
-
-/* Set to 1 to shut down tunnel */
-int stop = 0;
-
-
-
-typedef struct __tun{
-	int recv_from;
-	int send_to;
-} tunnel;
 
 typedef struct __popcorn{
 	int fd;
@@ -186,151 +130,10 @@ typedef struct __popcorn{
 	ip_tunnel_t * addr;
 } popcorn;
 
-void * loop(void * arg) {
-	int byte = 0; 
-	tunnel * tuna = (tunnel *) arg;
-	char * buffer = malloc(MAX_BUFFER);
-	int  fd_read =tuna->recv_from;
-	int  fd_write =tuna->send_to;
-
-	printf("BEGIN THREAD read %d write %d\n", fd_read, fd_write);
-
-	while (!stop) {
-		if (byte = tun_read(fd_read, buffer, MAX_BUFFER)) {
-			printf("%d -> %d bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
-					fd_read, fd_write, byte,
-					(int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
-					(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
-			      );
-			tun_write(fd_write, buffer, byte);
-		}
-	}
-}
-
-struct timespec sleep_send = {0, 50000000}; //50ms
-
-void  * pop_send(void * arg) {
-	int byte = 0; 
-	popcorn * pp = (popcorn *) arg;
-	ip_tunnel_t * my_buf = 0;
-
-	char * buffer = malloc(MAX_BUFFER);
-	int  fd = pp->fd;
-	int l = 0; // verbose suppression code
-
-	printf("BEGIN THREAD SEND id %d\n", fd);
-
-	while (!stop) {
-		if (byte = tun_read(fd, buffer, MAX_BUFFER)) {
-			DEBUGF("SEND bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
-					byte,
-					(int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
-					(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
-			      );
-			// check IP address - not on this network
-			if (!((buffer[19]-1) < MAX_IP)) {
-				DEBUGF("PACKET DROP: ip (.%d) is greater than MAX_IP (%d)\n",
-						(buffer[19]), MAX_IP );
-				continue;
-			}
-
-			my_buf = &((pp->addr)[(buffer[19]-1)]);
-
-			// check magic number
-			if (my_buf->magic != MAGIC_NUMBER) {
-				DEBUGF("PACKET DROP: magic number not present @ %p is 0x%x (remote id is %d)\n",
-						my_buf, my_buf->magic, (buffer[19]-1) );
-				continue;
-			}
-
-			int i;
-_mimmo:
-			for (i = 0; i < NUM_SPIN; i++)
-				/* spin until buffer is empty and ready to write */
-				if (!my_buf->content_size)
-					break;
-
-			if (i == NUM_SPIN) {
-				if (!(l++ % MAX_VERBOSE))
-					DEBUGF("remote .%d (%d.%d.%d.%d) id not ready to accept data - content_size is %d\n",
-							(buffer[19]-1),
-							(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19],
-							my_buf->content_size
-					      );
-				sched_yield();
-				//nanosleep(&sleep_send, 0);
-				goto _mimmo;
-			}
-
-			if (__sync_lock_test_and_set (&(my_buf->lock), 1) == 1)
-				goto _mimmo;
-
-			memcpy(my_buf->buffer, buffer, byte);
-			my_buf->content_size = byte;
-			my_buf->lock = 0;
-		}
-	}
-}
-
-struct timespec sleep_recv = {0, 100000000}; // 100ms
-
-void  * pop_recv(void * arg) {
-	int byte = 0; 
-	popcorn * pp = (popcorn *) arg;
-	ip_tunnel_t * my_buf = &((pp->addr)[pp->cpu]);
-
-	char * buffer;
-	int fd = pp->fd;
-	int l = 0; // verbose suppression code
-
-	my_buf->status = STATUS_CON;
-	printf("BEGIN THREAD RECV id %d (cpuid %d)\n", fd, pp->cpu);
-
-	while (!stop) {
-		int i;
-
-		/* spin until there's something in the buffer */
-		for (i = 0; i < NUM_SPIN; i++)
-			if (my_buf->content_size)
-				break;
-
-		/* maybe print stats if we've timed out waiting */
-		if (i == NUM_SPIN) {
-			if (!(l++ % MAX_VERBOSE))
-				DEBUGF("local .%d no data to recv - i is %d\n",
-						(pp->cpu +1),
-						my_buf->content_size
-				      );
-			//nanosleep(&sleep_recv, 0);
-			sched_yield();
-			continue;
-		}
-
-		/* check magic number */
-		if (my_buf->magic != MAGIC_NUMBER)
-			DEBUGF("magic number not present @ %p is 0x%x (local id is %d)\n",
-					my_buf, my_buf->magic, pp->cpu
-			      );
-
-		buffer = my_buf->buffer;
-		byte = my_buf->content_size;
-		DEBUGF("RECV bytes %d from %d.%d.%d.%d to %d.%d.%d.%d\n",
-				byte,
-				(int) buffer[12], (int) buffer[13], (int) buffer[14], (int) buffer[15],
-				(int) buffer[16], (int) buffer[17], (int) buffer[18], (int) buffer[19]
-		      );
-		tun_write(fd, buffer, byte);
-		my_buf->content_size = 0;    
-	}
-	my_buf->magic = 0; // this is temporary in the meanwhile we will implement status
-	my_buf->status = STATUS_DISCON;
-}
-
 void dump(ip_tunnel_t *data, int max) {
 	int i;
 	int mem_fd;
 	void* physical;  
-	ip_tunnel_t * tun_area;
 
 	mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (mem_fd < 0) {
@@ -360,42 +163,23 @@ void dump(ip_tunnel_t *data, int max) {
 				data[i].content_size);
 }
 
-int main (int argc, char * argv [] ) {
-#ifdef TEST 
-	pthread_t tun0_thread, tun1_thread;
-	char name0[32], name1[32];
-	memset(name0, 0, 32);
-	memset(name1, 0, 32);
-
-	int tun0 = tun_open(name0);
-	int tun1 = tun_open(name1);
-
-	tunnel tun0_tun = {tun0, tun1};
-	tunnel tun1_tun = {tun1, tun0};
-#else
-	pthread_t tun_send, tun_recv;
+int main (int argc, char * argv [] )
+{
 	char name[32];
 	memset(name, 0, 32);
 
 	if (argc == 2) {
 		void * phy_addr;
-		//sscanf(argv[1], "%x", &phy_addr);
 		phy_addr = (void*)strtoul(argv[1], 0, 0);
 
-		dump(phy_addr, 48);
-		return;
+		dump(phy_addr, MAX_IP);
+		return 0;
 	}
-
-	int tun = tun_open(name);
-
-	popcorn pp = {.fd = tun, .cpu = -1, .addr = 0};
-#endif
-
 	if (argc != 3)
 		printf("usage: tun physical_addr cpuid\n");
 
+	int tun = tun_open(name);
 	void * phy_addr;
-	//sscanf(argv[1], "%x", &phy_addr);
 	phy_addr = (void*)strtoul(argv[1], 0, 0);
 	int cpuid = atoi(argv[2]);
 
@@ -403,40 +187,12 @@ int main (int argc, char * argv [] ) {
 		printf("ERROR cpuid (%d) greater then MAX_IP (%d)\n", cpuid, MAX_IP);
 		exit(0);
 	}
-
-#ifndef TEST  
-	//printf("phy %p cpuid %d\n", phy_addr, cpuid);
-	//pp.cpu = cpuid;
-
-	//ip_tunnel_t * gigi = open_shm(phy_addr, cpuid);
-	//pp.addr = gigi;
-
 	printf("tun %s (fd %d)\n", name, tun);
 
-	//pthread_create(&tun_send, 0, pop_send, &pp);
-	//pthread_create(&tun_recv, 0, pop_recv, &pp);
-#else
-
-	printf("tun 0 %s tun 1 %s\n", name0, name1);
-
-	//pthread_create(&tun0_thread, 0, loop, &tun0_tun);
-	//pthread_create(&tun1_thread, 0, loop, &tun1_tun);
-#endif
-
-	while (1) { 
+	// TODO Handling CTRL+C
+	while (1)
 		sleep(1200);
-	}
-	stop = 1;
 
-#ifndef TEST
-	//pthread_join(tun_send, 0);
-	//pthread_join(tun_recv, 0);
-#else
-	//pthread_join(tun0_thread, 0);
-	//pthread_join(tun1_thread, 0);
-#endif  
-
-	printf("threaded tunnel end\n");
-
+	printf("shmtunnel end\n");
 	return 0;
 }
