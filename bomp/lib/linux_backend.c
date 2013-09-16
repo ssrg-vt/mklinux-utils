@@ -883,6 +883,8 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
     printf("ERRORRR!\n");
   
   self = THREAD_SELF;
+    printf("set_specific %u %p [%p]\n", key, value, self);
+
   /* Special case access to the first 2nd-level block.  This is the usual case.  */
   if ( key < PTHREAD_KEY_2NDLEVEL_SIZE )
     {
