@@ -199,8 +199,7 @@ typedef struct
 //from glibc/nptl/descr.h
 //in struct pthread
 struct backend {
-  tcbhead_t header;
-  void * self;
+  tcbhead_t header; // header is the first field in any case
   struct backend_key_data
   {
     /* Sequence number.  We use uintptr_t to not require padding on
@@ -468,6 +467,17 @@ void backend_init(void)
   syscall(__NR_arch_prctl, ARCH_GET_FS, &saved_selector);    
   printf("SELF %p FS id %u addr 0x%lx ERRNO %p\n", THREAD_SELF, TLS_GET_FS(), saved_selector, __errno_location ());
 
+// DTV debugging - START
+dtv_t * dtva;  
+  printf("tcb %p dtv %p self %p multiple_threads %d\n",
+	 THREAD_GETMEM(THREAD_SELF, header.tcb), dtva = THREAD_GETMEM(THREAD_SELF, header.dtv),
+	 THREAD_GETMEM(THREAD_SELF, header.self), THREAD_GETMEM(THREAD_SELF, header.multiple_threads));
+//NOTE the following I am not sure will work, must be checked : maybe must accessed via FS 
+int ii;
+for (ii=0; ii<4; ii++)
+  printf("%d counter %ld U val %p static %x\n", ii, dtva[ii].counter, dtva[ii].pointer.val, dtva[ii].pointer.is_static);
+// DTV debugging - END
+  
   long i;
   for (i = -tcb_offset; i < (signed int)sizeof( tcbhead_t); i++) 
   //void* dummy = THREAD_GETMEM_NC((struct backend *)THREAD_SELF, header.tcb, i);
