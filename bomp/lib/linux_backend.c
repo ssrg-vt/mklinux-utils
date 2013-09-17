@@ -169,6 +169,7 @@ int __sched_setaffinity (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 }
 
 #define PTHREAD_KEYS_MAX 8
+
 /* We keep thread specific data in a special data structure, a two-level
    array.  The top-level array contains pointers to dynamically allocated
    arrays of a certain number of data pointers.  So we can implement a
@@ -828,14 +829,17 @@ void * ____pthread_getspecific (backend_key_t key)
   
   /* Special case access to the first 2nd-level block.  This is the
      usual case.  */
-  if ( key < PTHREAD_KEY_2NDLEVEL_SIZE )
-    data = &THREAD_SELF->specific_1stblock[key];
-  else
+  if ( key < PTHREAD_KEY_2NDLEVEL_SIZE ) {
+    data = &(THREAD_SELF->specific_1stblock[key]);
+    printf("normal case %p %p\n", THREAD_SELF, data);
+  }else
     {
       /* Verify the key is sane.  */
-      if (key >= PTHREAD_KEYS_MAX)
+      if (key >= PTHREAD_KEYS_MAX) {
 	/* Not valid.  */
+	printf("key insane\n");
 	return NULL;
+      }
 
       unsigned int idx1st = key / PTHREAD_KEY_2NDLEVEL_SIZE;
       unsigned int idx2nd = key % PTHREAD_KEY_2NDLEVEL_SIZE;
@@ -845,9 +849,11 @@ void * ____pthread_getspecific (backend_key_t key)
 	 return NULL, too.  */
       struct backend_key_data *level2 = THREAD_GETMEM_NC (THREAD_SELF,
 							  specific, idx1st);
-      if (level2 == NULL)
+      if (level2 == NULL) {
 	/* Not allocated, therefore no data.  */
+	printf("errrorrr\n");
 	return NULL;
+      }
 
       /* There is data.  */
       data = &level2[idx2nd];
@@ -862,6 +868,8 @@ void * ____pthread_getspecific (backend_key_t key)
 	result = data->data = NULL;
     }
 
+printf("get_specific %d(%ld) %p [%p]\n", key, data->seq, result, THREAD_SELF);
+sleep(1);
   return result;
 }
 
@@ -883,16 +891,17 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
     printf("ERRORRR!\n");
   
   self = THREAD_SELF;
-    printf("set_specific %u %p [%p]\n", key, value, self);
 
   /* Special case access to the first 2nd-level block.  This is the usual case.  */
   if ( key < PTHREAD_KEY_2NDLEVEL_SIZE )
     {
       /* Verify the key is sane.  */
-      if (KEY_UNUSED ((seq = ____pthread_keys[key].seq)))
+      if (KEY_UNUSED ((seq = ____pthread_keys[key].seq))) {
 	/* Not valid.  */
+	printf("set_specific ERROR\n");
 	return EINVAL;
-      level2 = &self->specific_1stblock[key];
+      }
+      level2 = &(self->specific_1stblock[key]);
       /* Remember that we stored at least one set of data.  */
       if (value != NULL)
 	THREAD_SETMEM (self, specific_used, 1);
@@ -937,6 +946,7 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
      stale data.  */
   level2->seq = seq;
   level2->data = (void *) value;
+        printf("set_specific %u(%ld) %p [%p]\n", key, level2->seq, level2->data, self);
 
   return 0;
 }
