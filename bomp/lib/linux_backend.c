@@ -535,15 +535,15 @@ void backend_init(void)
   int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
   int tcb_offset= memsz + roundup(_dl_tls_static_size, 1);
   struct backend * __backendptr =
-    malloc( tcb_offset + sizeof(sizeof(struct backend)) + TLS_INIT_TCB_ALIGN);
+    malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN);
   if (!__backendptr) {
       printf("%s: TLS allocation error\n", __func__);
       exit (0);
   }
   memset(__backendptr, 0, sizeof(struct backend));
     
-  struct backend * backendptr = (void *) ((char*)__backendptr + tcb_offset);
-  printf("__backend %p backend %p\n", __backendptr, backendptr);
+  struct backend * backendptr = (void *) (((char*)__backendptr) + tcb_offset);
+  printf("__backend %p backend %p end %p\n", __backendptr, backendptr, ((char*) backendptr) + sizeof (struct backend));
 
 // get the previous FS --------------------------------------------------------
 #define ARCH_SET_FS 0x1002
