@@ -730,6 +730,7 @@ int main(int argc, char** argv)
     backend_thread_create_varstack(realmain, (void*)((uint64_t)atoi(argv[1])),
                                    STACK_SIZE);
     backend_thread_exit();
+    bomp_custom_exit();
 #else /* BOMP */
     realmain((void*)((long)atoi(argv[1])));
 #endif /* BOMP */
