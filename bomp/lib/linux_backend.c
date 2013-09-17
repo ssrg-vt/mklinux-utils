@@ -520,7 +520,7 @@ static unsigned long selector = -1;
 void backend_init(void)
 {  
   printf("sizeof(struct backend) %ld %lx\n", sizeof(struct backend), sizeof(struct backend));
-  printf("init_calls: %d\n", ++init_calls);
+  printf("PID %ld init_calls: %d\n", getpid(), ++init_calls);
   if (init_calls > 1) 
     exit(1);
 
@@ -756,7 +756,8 @@ void backend_run_func_on(int core_id, void* cfunc, void *arg)
 	printf("stack allocation error");
 	exit (0);
     }
-    
+memset(stack, 0, STACK_SIZE);   
+ 
     int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
     int tcb_offset= memsz + roundup(_dl_tls_static_size, 1);
 struct backend * __backendptr = malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN) ;
