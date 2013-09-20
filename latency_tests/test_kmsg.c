@@ -173,7 +173,7 @@ int main(int argc,  char *argv[])
 	  printf("Spin START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
 	}
 	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT_IDLE) {
-	  printf("Idle START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
+	  printf("Idle START,targ_cpu,rep_cpu,send_val,rtt-mid, rtt\n");
 	}
 	if(test_op == PCN_KMSG_TRIGGER_CPU_WAIT_SCHED) {
 	  printf("Sched START,targ_cpu,rep_cpu,rep_val,send_val,rtt\n");
@@ -200,7 +200,17 @@ int main(int argc,  char *argv[])
 		}
 
 		switch (test_op) {
-			case PCN_KMSG_TRIGGER_CPU_WAIT:
+		        case PCN_KMSG_TRIGGER_CPU_WAIT:
+			  printf("%010lu,%02d,%02d,%08x,%lu,%lu\n",
+				 test_args.send_ts,
+				 (int)test_args.ts0,
+				 (int)test_args.ts1,
+				 (int)test_args.ts3,
+				 (int)test_args.ts2,  // mid time
+				 test_args.rtt
+
+				 );
+		  break;
 			case PCN_KMSG_TRIGGER_CPU_WAIT_IDLE:
 			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED:		
 			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED_IDLE:
