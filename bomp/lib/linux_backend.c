@@ -32,6 +32,12 @@
 #include "backend.h"
 #include "omp.h"
 
+
+// value copied from is.c
+//NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread! 
+#define STACK_SIZE (8 * 1024 * 1024)
+
+
 //#define DEBUG_MALLOC_BACKEND
 #undef DEBUG_MALLOC_BACKEND
 #ifdef DEBUG_MALLOC_BACKEND
@@ -536,6 +542,7 @@ static void* allocate_dtv (void *result)
      of the dtv.  */
   dtv_length = dl_tls_max_dtv_idx + DTV_SURPLUS;
   dtv = calloc (dtv_length + 2, sizeof (dtv_t)); // Antonio: must use calloc to work with deallocate_dtv
+  memset (dtv, 0, ((dtv_length +2)*sizeof(dtv_t))); // added by Antonio
   if (dtv != NULL)
     {
       /* This is the initial length of the dtv.  */
@@ -617,8 +624,7 @@ static unsigned long selector = -1;
 
 void backend_init(void)
 {  
-  printf("sizeof(struct backend) %ld %lx\n", sizeof(struct backend), sizeof(struct backend));
-  printf("PID %ld init_calls: %d\n", getpid(), ++init_calls);
+  printf("[main %ld] init_calls: %d\n", getpid(), ++init_calls);
   if (init_calls > 1) 
     exit(1);
 
@@ -642,7 +648,11 @@ void backend_init(void)
   memset(__backendptr, 0, sizeof(struct backend));
     
   struct backend * backendptr = (void *) (((char*)__backendptr) + tcb_offset);
-  printf("__backend %p backend %p end %p\n", __backendptr, backendptr, ((char*) backendptr) + sizeof (struct backend));
+  
+  printf("sizeof(struct backend) %ld(0x%lx) ",
+	 sizeof(struct backend), sizeof(struct backend));
+  printf("__backend %p backend %p (last addr %p)\n",
+	 __backendptr, backendptr, ((char*) backendptr) + sizeof (struct backend));
 
 // get the previous FS --------------------------------------------------------
   __GET_FS(saved_selector);
@@ -786,16 +796,16 @@ int backend_start_func (void * args)
     */ // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
 //  free( args );
  
-   dump_current_tcb();
+/*   dump_current_tcb();
   dump_current_dtv();
- 
+ */
   clone_exit(ret);
   /* never reaching here */
   return -1;
 }
 
 // we assume stack is growing downward (tipical in x86)
-#define STACK_SIZE 0x1000
+//#define STACK_SIZE 0x1000 //have a look at the beginning of the program! 
 // from glibc
 #define CLONE_SIGNAL            (CLONE_SIGHAND | CLONE_THREAD)
 

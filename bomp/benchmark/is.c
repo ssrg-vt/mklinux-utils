@@ -717,12 +717,22 @@ printf("client done\n");
 
 #define STACK_SIZE (8 * 1024 * 1024)
 
+// NOTE by default glibc NPTL implementation of pthread gives 8MB stack to each application!
+
 int main(int argc, char** argv)
 {
     if (argc != 2) { /* Print usage */
         printf("Usage: %s <Number of threads>\n", argv[0]);
         exit(-1);
     }
+    
+    printf("key_array [%p-%p]\n", key_array, key_array+SIZE_OF_BUFFERS);
+    printf("key_buff1 [%p-%p]\n", key_buff1, key_buff1+SIZE_OF_BUFFERS);    
+    printf("key_buff2 [%p-%p]\n", key_buff2, key_buff2+SIZE_OF_BUFFERS);
+#ifdef USE_BUCKETS
+    printf("bucket_size [%p-%p]\n", bucket_size, bucket_size+NUM_BUCKETS);
+    printf("bucket_ptrs [%p-%p]\n", bucket_ptrs, bucket_ptrs+NUM_BUCKETS);
+#endif    
 
 #ifdef BOMP
     backend_span_domain(atoi(argv[1]), STACK_SIZE);
