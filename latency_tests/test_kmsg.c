@@ -302,7 +302,12 @@ int main(int argc,  char *argv[])
 				       targsp->mcast_id, targsp->send_ts, targsp->ts0);
 				break;
 		}
-		if (--wg_val<=0) usleep(20000);
+
+                if (g_val == 1 ) {
+		        usleep(20000);
+		} else {
+		        if (--wg_val<=0) usleep(20000);
+		}
 	}
 
 	exit(EXIT_SUCCESS);
