@@ -104,7 +104,7 @@ int main(int argc,  char *argv[])
 	test_args.batch_size = 1;
 
 	test_op = -1;
-        g_val = 1;
+        g_val = 0;
         wg_val = 0;
 
 	while ((opt = getopt(argc, argv, "hc:t:b:n:m:i:ug:")) != -1) {
@@ -213,10 +213,14 @@ int main(int argc,  char *argv[])
 		targsp->batch_size =test_args.batch_size;
 		targsp->g_val = g_val;
 
-	        if(wg_val == 0) wg_val = g_val - 1;
-		if (g_val > 1 ) {
-		        if (( num_tests - i) < g_val) {
-			        wg_val = num_tests - i -1;
+	        if(wg_val == 0) {
+		        wg_val = g_val;
+			if (g_val > 0 ) {
+		                if (( num_tests - i) < g_val) {
+				        g_val = num_tests-i;
+					targsp->g_val = g_val;
+					wg_val = num_tests - i -1;
+				}
 			}
 		}
 		  
@@ -303,7 +307,7 @@ int main(int argc,  char *argv[])
 				break;
 		}
 
-                if (g_val == 1 ) {
+                if (g_val == 0 ) {
 		        usleep(20000);
 		} else {
 		        if (--wg_val<=0) usleep(20000);
