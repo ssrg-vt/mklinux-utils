@@ -33,7 +33,6 @@ enum pcn_kmsg_test_op {
 struct pcn_kmsg_test_args {
 	int cpu;
 	int use_thread;
-	int wg_val;
 	int g_val;
 	unsigned long mask;
 	unsigned long batch_size;
@@ -84,28 +83,82 @@ void print_usage(void)
 
 struct pcn_kmsg_test_args mtest_args[16];
 
+int print_res3(struct pcn_kmsg_test_args *targsp) 
+{
+        int i;
+	int g_val = targsp->g_val;
+	for ( i = 0 ; i < g_val; i++) {
+	        printf("%lu %u %u %u %u %lu\n",
+		       targsp->send_ts,
+		       (int)targsp->ts0,
+		       (int)targsp->ts1,
+		       (int)targsp->ts2,
+		       (int)targsp->ts3,  // mid time
+		       targsp->rtt
+		       );
+		targsp++;
+	}
+	return 0;
+}
+
+int print_res2(struct pcn_kmsg_test_args *targsp) 
+{
+        int i;
+	int g_val = targsp->g_val;
+	for ( i = 0 ; i < g_val; i++) {
+    
+      	        printf("%lu %lu %lu %lu %lu %lu\n", 
+		       targsp->send_ts,
+		       (int)targsp->ts0-targsp->send_ts,
+		       (int)targsp->ts1-targsp->send_ts,
+		       (int)targsp->ts3-targsp->send_ts,
+		       (int)targsp->ts2-targsp->send_ts,  // mid time
+		       targsp->rtt-targsp->send_ts
+		       );
+		targsp++;
+	}
+	return 0;
+}
+    
+
+int print_res(struct pcn_kmsg_test_args *targsp) 
+{
+        int i;
+	int g_val = targsp->g_val;
+	for ( i = 0 ; i < g_val; i++) {
+	  
+	        printf("%010lu %02d %02d %08x %u %lu\n",
+		       targsp->send_ts,
+		       (int)targsp->ts0,
+		       (int)targsp->ts1,
+		       (int)targsp->ts3,
+		       (int)targsp->ts2,  // mid time
+		       targsp->rtt
+		       
+		       );
+		targsp++;
+	}
+	return 0;
+}
+
 int main(int argc,  char *argv[]) 
 {
 	int opt, i;
 	int test_op, rc;
-	int g_val;
-	int wg_val;
 
-	struct pcn_kmsg_test_args test_args;
-	struct pcn_kmsg_test_args *targsp;
+	struct pcn_kmsg_test_args *targsp=&mtest_args[0];
 	unsigned long num_tests = 1;
 
 
 
-	test_args.cpu = -1;
-	test_args.use_thread = 0;
-	test_args.mask = 0;
-	test_args.mcast_id = -1;
-	test_args.batch_size = 1;
+	targsp->cpu = -1;
+	targsp->use_thread = 0;
+	targsp->mask = 0;
+	targsp->mcast_id = -1;
+	targsp->batch_size = 1;
+	targsp->g_val = 1;
 
 	test_op = -1;
-        g_val = 0;
-        wg_val = 0;
 
 	while ((opt = getopt(argc, argv, "hc:t:b:n:m:i:ug:")) != -1) {
 		switch (opt) {
@@ -113,7 +166,7 @@ int main(int argc,  char *argv[])
 			        print_usage();
 				break;
 			case 'c':
-				test_args.cpu = atoi(optarg);
+				targsp->cpu = atoi(optarg);
 				break;
 
 			case 't':
@@ -121,12 +174,12 @@ int main(int argc,  char *argv[])
 				break;
 
 			case 'g':
-			  g_val = atoi(optarg);  // limited to 15
-                                if (g_val > 15) g_val=15;
+			        targsp->g_val = atoi(optarg);  // limited to 15
+				if (targsp->g_val > 15) targsp->g_val=15;
 				break;
 
 			case 'b':
-				test_args.batch_size = atoi(optarg);
+				targsp->batch_size = atoi(optarg);
 				break;
 
 			case 'n':
@@ -134,14 +187,14 @@ int main(int argc,  char *argv[])
 				break;
 
 			case 'm':
-				test_args.mask = strtoul(optarg, NULL, 0);
+				targsp->mask = strtoul(optarg, NULL, 0);
 				break;
 
 			case 'i':
-				test_args.mcast_id = atoi(optarg);
+				targsp->mcast_id = atoi(optarg);
 				break;
 			case 'u':
-			        test_args.use_thread = 1;
+			        targsp->use_thread = 1;
 				break;
 
 			default:
@@ -150,7 +203,7 @@ int main(int argc,  char *argv[])
 		}
 	}
 
-	if (test_args.cpu == -1) {
+	if (targsp->cpu == -1) {
 		fprintf(stderr, "Failed to specify CPU!\n");
 		print_usage();
 		exit(EXIT_FAILURE);
@@ -162,13 +215,13 @@ int main(int argc,  char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	if ((test_op == PCN_KMSG_TEST_OP_MCAST_OPEN) && !test_args.mask) {
+	if ((test_op == PCN_KMSG_TEST_OP_MCAST_OPEN) && !targsp->mask) {
 		fprintf(stderr, "Failed to specify mask for mcast open!\n");
 		print_usage();
 		exit(EXIT_FAILURE);
 	}
 
-	if ((test_op == PCN_KMSG_TEST_OP_MCAST_SEND) && (test_args.mask == -1)) {
+	if ((test_op == PCN_KMSG_TEST_OP_MCAST_SEND) && (targsp->mask == -1)) {
 		fprintf(stderr, "Failed to specify group id for mcast send!\n");
 		print_usage();
 		exit(EXIT_FAILURE);
@@ -203,31 +256,13 @@ int main(int argc,  char *argv[])
         // kernel will send all messages at once when wg_val == 1
 	for (i = 0; i < num_tests; i++) {
      	        // Update group number
-		targsp=&mtest_args[wg_val];  // use one of the test args buffers
+		targsp=&mtest_args[0];  // use the test args buffers
 
-                // copy default data
-		targsp->cpu = test_args.cpu;
-		targsp->use_thread = test_args.use_thread;
-		targsp->mask = test_args.mask;
-		targsp->mcast_id=test_args.mcast_id;
-		targsp->batch_size =test_args.batch_size;
-		targsp->g_val = g_val;
-
-	        if(wg_val == 0) {
-		        wg_val = g_val;
-			if (g_val > 0 ) {
-		                if (( num_tests - i) < g_val) {
-				        g_val = num_tests-i;
-					targsp->g_val = g_val;
-					wg_val = num_tests - i -1;
-				}
-			}
-		}
-		  
-		targsp->wg_val = wg_val;
+                // copy default data 
+		// data from 0 used for the whole group 
 
 		if (    (num_tests > 1 ) 
-		        && (test_args.use_thread == 0)
+		        && (targsp->use_thread == 0)
                         && (test_op == PCN_KMSG_TRIGGER_CPU_WAIT)) {
 			rc = syscall(__NR_popcorn_test_kmsg,
 	                               PCN_KMSG_TEST_CPU_WAIT,
@@ -241,54 +276,26 @@ int main(int argc,  char *argv[])
 
 		switch (test_op) {
 		        case PCN_KMSG_TRIGGER_CPU_WAIT:
-			  printf("%010lu %02d %02d %08x %u %lu\n",
-				 targsp->send_ts,
-				 (int)targsp->ts0,
-				 (int)targsp->ts1,
-				 (int)targsp->ts3,
-				 (int)targsp->ts2,  // mid time
-				 targsp->rtt
+                                print_res(targsp);
+				break;
 
-				 );
-		  break;
 			case PCN_KMSG_TRIGGER_CPU_WAIT_IDLE:
 			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED:		
 			case PCN_KMSG_TRIGGER_CPU_WAIT_SCHED_IDLE:
-			        printf("%010lu %02d %02d %08x %08x %lu\n",
-				       targsp->send_ts,
-				       (int)targsp->ts0,
-				       (int)targsp->ts1,
-				       (int)targsp->ts3,
-				       (int)targsp->ts2,  // mid time
-				       targsp->rtt
-				       );
+			        print_res(targsp);
 				break;
 
 			case PCN_KMSG_TEST_SEND_SINGLE:
-				printf("Single ticks: sender %lu\n",
+			        printf("Single ticks: sender %lu\n",
 				       targsp->send_ts);
-
-			case PCN_KMSG_TEST_SEND_PINGPONG:
-				printf("%lu %lu %lu %lu %lu %lu\n", 
-				       targsp->send_ts,
-				       (int)targsp->ts0-targsp->send_ts,
-				       (int)targsp->ts1-targsp->send_ts,
-				       (int)targsp->ts3-targsp->send_ts,
-				       (int)targsp->ts2-targsp->send_ts,  // mid time
-				       targsp->rtt-targsp->send_ts
-				       );
+				
+		        case PCN_KMSG_TEST_SEND_PINGPONG:
+			        print_res2(targsp);
 				break;
 
 			case PCN_KMSG_TEST_SEND_LONG:
 			case PCN_KMSG_TEST_SEND_BATCH:
-				printf("%lu %u %u %u %u %lu\n",
-				       targsp->send_ts,
-				       (int)targsp->ts0,
-				       (int)targsp->ts1,
-				       (int)targsp->ts2,
-				       (int)targsp->ts3,  // mid time
-				       targsp->rtt
-				       );
+			        print_res3(targsp);
 				break;
 
 			//case PCN_KMSG_TEST_SEND_LONG:
@@ -306,12 +313,7 @@ int main(int argc,  char *argv[])
 				       targsp->mcast_id, targsp->send_ts, targsp->ts0);
 				break;
 		}
-
-                if (g_val == 0 ) {
-		        usleep(20000);
-		} else {
-		        if (--wg_val<=0) usleep(20000);
-		}
+		usleep(20000);
 	}
 
 	exit(EXIT_SUCCESS);
