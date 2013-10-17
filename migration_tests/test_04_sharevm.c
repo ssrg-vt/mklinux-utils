@@ -10,6 +10,7 @@
 #include <sched.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
 #include <err.h>
 #include <fcntl.h>
 
@@ -80,7 +81,7 @@ int cfn( void*blah ) {
         system(buf);
     }
 
-
+//syscall(__NR_exit);
     return 0;
 
 }
@@ -93,10 +94,10 @@ int main( int argc, char**argv ) {
     printf("Test 04 - sharevm pid{%d}\r\n",getpid());
     const int STACK_SZ = 65536;
     int current_cpu = sched_getcpu();
-    int child;
+    int child, status;
 
     // Start performance measurements
-    syscall(SYSCALL_POPCORN_PERF_START);
+//    syscall(SYSCALL_POPCORN_PERF_START);
 
     if(argc > 1) {
         _dst = atoi(argv[1]);
@@ -115,8 +116,8 @@ int main( int argc, char**argv ) {
     }
 
     child = clone(cfn, stack+STACK_SZ, CLONE_THREAD|CLONE_SIGHAND|CLONE_VM, &anon);
-
-    sleep(3);
+printf("child id %d\n", child);
+    sleep(5);
 
     anon = (char*)mmap(NULL,4, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
     anon[0] = '0';
@@ -127,7 +128,7 @@ int main( int argc, char**argv ) {
         printf("mmapped anon = %lx\n",anon);
     }
 
-    sleep(30);
+    sleep(10);
 
     //system("pstree\n");
 
@@ -136,9 +137,12 @@ int main( int argc, char**argv ) {
 
     printf("waiting on %d\n",child);
 
-    wait(child);
+   // wait(child); // <--- this is not correct
 
-    syscall(SYSCALL_POPCORN_PERF_END);
+    waitpid(child, &status, 0);
+    printf("waitpid status: %d\n", status);
+
+//    syscall(SYSCALL_POPCORN_PERF_END);
 
     return 0;
 }
