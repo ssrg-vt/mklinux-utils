@@ -102,10 +102,9 @@ int print_res3(struct pcn_kmsg_test_args *targsp)
 	return 0;
 }
 
-int print_res2(struct pcn_kmsg_test_args *targsp) 
+int print_res2(struct pcn_kmsg_test_args *targsp, int g_val) 
 {
         int i;
-	int g_val = targsp->g_val;
 	for ( i = 0 ; i < g_val; i++) {
     
       	        printf("%lu %lu %lu %lu %lu %lu\n", 
@@ -184,8 +183,8 @@ int main(int argc,  char *argv[])
 				break;
 
 			case 'g':
-			        targsp->g_val = atoi(optarg);  // limited to 15
-				if (targsp->g_val > 15) targsp->g_val=15;
+			        g_val = atoi(optarg);  // limited to 15
+				if (g_val > 15) g_val=15;
 				break;
 
 			case 'b':
