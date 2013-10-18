@@ -33,6 +33,7 @@ enum pcn_kmsg_test_op {
 struct pcn_kmsg_test_args {
 	int cpu;
 	int use_thread;
+	int wg_val; 
 	int g_val;
 	unsigned long mask;
 	unsigned long batch_size;
@@ -265,16 +266,15 @@ int main(int argc,  char *argv[])
         // kernel will send all messages at once when wg_val == 1
 	for (i = 0; i < num_tests; i++) {
      	        // Update group number
-		targsp=&mtest_args[0];  // use the test args buffers
 		// data from 0 used for the whole group 
 		targsp=&mtest_args[0];  // use one of the test args buffers
 
                 // copy default data
-		targsp->cpu = test_args.cpu;
-		targsp->use_thread = test_args.use_thread;
-		targsp->mask = test_args.mask;
-		targsp->mcast_id=test_args.mcast_id;
-		targsp->batch_size =test_args.batch_size;
+		//targsp->cpu = test_args.cpu;
+		//targsp->use_thread = test_args.use_thread;
+		//targsp->mask = test_args.mask;
+		//targsp->mcast_id=test_args.mcast_id;
+		//targsp->batch_size =test_args.batch_size;
 		targsp->g_val = g_val;
 		targsp->wg_val = wg_val;
 
