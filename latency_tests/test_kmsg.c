@@ -144,7 +144,7 @@ int print_res(struct pcn_kmsg_test_args *targsp)
 
 int main(int argc,  char *argv[]) 
 {
-	int opt, i;
+  int opt, i, j;
 	int test_op, rc;
 	int g_val;
 	int wg_val;
@@ -278,22 +278,22 @@ int main(int argc,  char *argv[])
 		targsp->g_val = g_val;
 		targsp->wg_val = wg_val;
 
-#if 0
-	        if(wg_val == 0) {
-		        wg_val = g_val;
-			if (g_val > 0 ) {
-		                if (( num_tests - i) < g_val) {
-				        g_val = num_tests-i;
-					targsp->g_val = g_val;
-					wg_val = num_tests - i -1;
-				}
-			}
-		}
-#endif		  
+
+		//	        if(wg_val == 0) {
+		//        wg_val = g_val;
+		//	if (g_val > 0 ) {
+		//                if (( num_tests - i) < g_val) {
+		//		        g_val = num_tests-i;
+		//			targsp->g_val = g_val;
+		//			wg_val = num_tests - i -1;
+		//		}
+		//	}
+		//}
 
 		if (    (num_tests > 1 ) 
 		        && (targsp->use_thread == 0)
-                        && (test_op == PCN_KMSG_TRIGGER_CPU_WAIT)) {
+                        && (test_op == PCN_KMSG_TRIGGER_CPU_WAIT)
+			) {
 			rc = syscall(__NR_popcorn_test_kmsg,
 	                               PCN_KMSG_TEST_CPU_WAIT,
 	                               targsp);
@@ -322,10 +322,10 @@ int main(int argc,  char *argv[])
 
 			case PCN_KMSG_TEST_SEND_PINGPONG:
 			  num_res=g_val;
-                          if (g_val==0) num_res =1;
+                          if (num_res==0) num_res = 1;
 
-			  for (i = 0; i < num_res; i++ ) {
-			    targsp=&mtest_args[i]; 
+			  for (j = 0; j < num_res; j++ ) {
+			    targsp=&mtest_args[j]; 
 
 			    printf("%lu %lu %lu %lu %lu %lu\n", 
 				   targsp->send_ts,
