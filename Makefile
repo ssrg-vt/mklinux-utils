@@ -1,10 +1,12 @@
 #CC_FLAGS=-DDEBUG
+
 LIB = popcorn.o
 
-all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk tunnel kcore
+all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore
 
 
-
+$(LIB): popcorn.c
+	$(CC) $(CC_FLAGS) -c popcorn.c
 
 dump_shdr: dump_shdr.c $(LIB)
 	$(CC) $(CC_FLAGS) -o $@ $(LIB) dump_shdr.c
@@ -21,20 +23,18 @@ copy_ramdisk: copy_ramdisk.c $(LIB)
 mpart: mpart.c
 	$(CC) $(CC_FLAGS) -o $@ mpart.c
 
-
-$(LIB): popcorn.c
-	$(CC) $(CC_FLAGS) -c popcorn.c
-
 tunnel: tunnel.c
-	$(CC) $(CC_FLAGS) -o $@  tunnel.c -lpthread
+	$(CC) $(CC_FLAGS) -o $@ tunnel.c -lpthread
+
+tunnel_shm: tunnel_shm.c
+	$(CC) $(CC_FLAGS) -o $@ tunnel_shm.c -lpthread
 
 kcore: kcore.c
-	$(CC) $(CC_FLAGS) -o $@  kcore.c 
-
+	$(CC) $(CC_FLAGS) -o $@ kcore.c 
 
 
 .PHONY: clean
 
 clean:
-	rm -f *.o dump_shdr rd_cmdline wr_cmdline copy_ramdisk tunnel kcore
-#mpart tunnel kcore
+	rm -f *.o dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore
+
