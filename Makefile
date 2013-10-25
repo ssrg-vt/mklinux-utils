@@ -2,7 +2,7 @@
 
 LIB = popcorn.o
 
-all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore
+all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore mpart
 
 
 $(LIB): popcorn.c

@@ -17,6 +17,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
+#include "bit.h"
+
 unsigned long long total_by_node=-1;
 
 /* (cache the result?) */
