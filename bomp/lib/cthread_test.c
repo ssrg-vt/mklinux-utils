@@ -5,13 +5,50 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <sched.h>
+#include <unistd.h>
 
 #include "cthread.h"
 
-fun_modula () {
-	cthread_setaffinity_np ();
+//#if 1
+#if 0
+// CHILD DIES FIRST
+ #define PARENT_SLEEP 15
+ #define CHILD_SLEEP 5
+#else
+// PARENT DIES FIRST
+ #define PARENT_SLEEP 5
+ #define CHILD_SLEEP 15
+#endif
+
+void * fun(void * arg)
+{
+  printf("in fun\n");
+  sleep(CHILD_SLEEP);
+  printf("out fun\n");
+  return 0;
 }
 
+int main (int argc, char * argv[])
+{
+  cthread_t pt;
+  int res;
+
+  printf("pre pthread\n");
+  res = cthread_create(&pt, &attr, fun, 0);
+
+  if (res != 0) {
+    perror("pthread_create");
+    return 1;
+  }
+  printf("after pthread\n");
+  sleep(PARENT_SLEEP);
+  printf("out main\n");
+  return 0;
+}
+
+/*
 void test_modula() {
 	cthread_create();
 	cthread_join();
@@ -26,3 +63,4 @@ void test_modula() {
 int main () {
   test_modula();
 }
+*/
