@@ -5,6 +5,7 @@
 
 // Popcorn version
 // Copyright Antonio Barbalace, SSRG, VT, 2013
+// current version with ZERO futexes
 
 /*
  * Copyright (c) 2007, 2008, 2009, ETH Zurich.
@@ -31,6 +32,97 @@
 #include "backend.h"
 #include "omp.h"
 
+
+// value copied from is.c
+//NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread! 
+#define STACK_SIZE (8 * 1024 * 1024)
+
+
+//#define DEBUG_MALLOC_BACKEND
+#undef DEBUG_MALLOC_BACKEND
+#ifdef DEBUG_MALLOC_BACKEND
+     /* Prototypes for __malloc_hook, __free_hook */
+     #include <malloc.h>
+     
+     /* Prototypes for our hooks.  */
+     static void my_init_hook (void);
+     static void *my_malloc_hook (size_t, const void *);
+     //static void my_free_hook (void*, const void *);
+     
+     void* old_malloc_hook;
+     
+     /* Override initializing hook from the C library. */
+     void (*__malloc_initialize_hook) (void) = my_init_hook;
+     
+     static void
+     my_init_hook (void)
+     {
+       old_malloc_hook = __malloc_hook;
+       //old_free_hook = __free_hook;
+       __malloc_hook = my_malloc_hook;
+       //__free_hook = my_free_hook;
+     }
+     
+     static void *
+     my_malloc_hook (size_t size, const void *caller)
+     {
+       void *result;
+       unsigned long bp;
+       /* Restore all old hooks */
+       __malloc_hook = old_malloc_hook;
+       //__free_hook = old_free_hook;
+       /* Call recursively */
+       result = malloc (size);
+       /* Save underlying hooks */
+       old_malloc_hook = __malloc_hook;
+       //old_free_hook = __free_hook;
+       /* printf might call malloc, so protect it too. */
+       __asm__ __volatile__ ("movq %%rbp,%q0\n" : "=r" (bp));
+       
+       printf ("malloc (%u) returns %p bp %lx\n", (unsigned int) size, result, bp);
+       /* Restore our own hooks */
+       __malloc_hook = my_malloc_hook;
+       //__free_hook = my_free_hook;
+       return result;
+     }
+#endif  
+
+// to simulate pthread on exit
+static inline unsigned long clone_exit (int ret)
+{
+  unsigned long _ret;
+  __asm__ __volatile__ ("syscall\n"
+			: "=a" (_ret) 
+			:"a" (__NR_exit), "d" (ret));
+  return _ret;
+}
+
+#define ARCH_SET_FS 0x1002
+#define ARCH_GET_FS 0x1003
+
+
+#define __GET_FS(address) \
+do { \
+  syscall(__NR_arch_prctl, ARCH_GET_FS, &(address)); \
+  printf("$fs id %u base 0x%lx _SELF %p ERRNO %p\n", \
+	 TLS_GET_FS(), address, \
+	 THREAD_SELF, __errno_location()); \
+} while(0);
+	 
+static inline unsigned long __set_fs (void * address) 
+{
+    int _result;
+    /* It is a simple syscall to set the %fs value for the thread.  */
+    __asm__ __volatile__ ("syscall"                         
+                    : "=a" (_result)
+                    : "a" ((unsigned long int) __NR_arch_prctl),               
+                      "D" ((unsigned long int) ARCH_SET_FS),                  
+                      "S" ((void*)address)
+                    : "memory", "cc", "r11", "cx");                           
+    return _result;
+}
+
+#undef offsetof
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
 /* the following code is extracted from glibc */
@@ -122,6 +214,7 @@ int __sched_setaffinity (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 }
 
 #define PTHREAD_KEYS_MAX 8
+
 /* We keep thread specific data in a special data structure, a two-level
    array.  The top-level array contains pointers to dynamically allocated
    arrays of a certain number of data pointers.  So we can implement a
@@ -152,11 +245,24 @@ typedef struct {
   int i[4];
 } __128bits;
 
+typedef enum {false, true} bool;
+/* Type for the dtv.  */
+typedef union dtv
+{
+  size_t counter;
+  struct
+  {
+    void *val;
+    bool is_static;
+  } pointer;
+} dtv_t;
+// todo allocate_dtv from /gnu/glibc/elf/dl-tls.c
+
 typedef struct
 {
   void *tcb;		/* Pointer to the TCB.  Not necessarily the
 			   thread descriptor used by libpthread.  */
-  void *dtv;
+  dtv_t *dtv;
   void *self;		/* Pointer to the thread descriptor.  */
   int multiple_threads;
   int gscope_flag;
@@ -185,8 +291,7 @@ typedef struct
 //from glibc/nptl/descr.h
 //in struct pthread
 struct backend {
-  tcbhead_t header;
-  void * self;
+  tcbhead_t header; // header is the first field in any case
   struct backend_key_data
   {
     /* Sequence number.  We use uintptr_t to not require padding on
@@ -280,7 +385,31 @@ struct backend {
 		       : IMM_MODE ((uint64_t) cast_to_integer (value)),	      \
 			 "i" (offsetof (struct backend, member)));	      \
        }})
-       
+
+      /* Read member of the thread descriptor directly.  */
+# define THREAD_GETMEM(descr, member) \
+  ({ __typeof (descr->member) __value;					      \
+     if (sizeof (__value) == 1)						      \
+       asm volatile ("movb %%fs:%P2,%b0"				      \
+		     : "=q" (__value)					      \
+		     : "0" (0), "i" (offsetof (struct backend, member)));     \
+     else if (sizeof (__value) == 4)					      \
+       asm volatile ("movl %%fs:%P1,%0"					      \
+		     : "=r" (__value)					      \
+		     : "i" (offsetof (struct backend, member)));	      \
+     else								      \
+       {								      \
+	 if (sizeof (__value) != 8)					      \
+	   /* There should not be any value with a size other than 1,	      \
+	      4 or 8.  */						      \
+	   abort ();							      \
+									      \
+	 asm volatile ("movq %%fs:%P1,%q0"				      \
+		       : "=r" (__value)					      \
+		       : "i" (offsetof (struct backend, member)));	      \
+       }								      \
+     __value; })
+     
 /* Set member of the thread descriptor directly.  */
 # define THREAD_SETMEM_NC(descr, member, idx, value) \
   ({ if (sizeof (descr->member[0]) == 1)				      \
@@ -344,6 +473,14 @@ struct backend {
 								      \
      *__gmemp == (oldval) ? (*__gmemp = __gnewval, 0) : 1; })
 
+# define THREAD_COPY_STACK_GUARD(descr) \
+    ((descr)->header.stack_guard					      \
+     = THREAD_GETMEM (THREAD_SELF, header.stack_guard))
+
+# define THREAD_COPY_POINTER_GUARD(descr) \
+  ((descr)->header.pointer_guard					      \
+   = THREAD_GETMEM (THREAD_SELF, header.pointer_guard))
+
 /* Keys for thread-specific data */
 typedef unsigned int backend_key_t;
 
@@ -375,56 +512,246 @@ int ____pthread_key_create (backend_key_t *key, void (*destr) (void *))
   return EAGAIN;
 }
 
+#ifdef __GNUC__
+# define roundup(x, y)  (__builtin_constant_p (y) && powerof2 (y)             \
+                         ? (((x) + (y) - 1) & ~((y) - 1))                     \
+                         : ((((x) + ((y) - 1)) / (y)) * (y)))
+#else
+# define roundup(x, y)  ((((x) + ((y) - 1)) / (y)) * (y))
+#endif
+#define powerof2(x)     ((((x) - 1) & (x)) == 0)
+
 /* Size of the static TLS block.  Giving this initialized value
    preallocates some surplus bytes in the static TLS area.  */
 size_t _dl_tls_static_size = 2048;
 
+# define TLS_INIT_TCB_ALIGN __alignof__ (struct backend)
+
+/* Number of additional slots in the dtv allocated.  */
+#define DTV_SURPLUS (14)
+static int dl_tls_max_dtv_idx = 1;
+// from glibc/elf/dl-tls.c
+// NOTE result is the pointer to tcbhead_t*
+static void* allocate_dtv (void *result)
+{
+  dtv_t *dtv;
+  size_t dtv_length;
+
+  /* We allocate a few more elements in the dtv than are needed for the
+     initial set of modules.  This should avoid in most cases expansions
+     of the dtv.  */
+  dtv_length = dl_tls_max_dtv_idx + DTV_SURPLUS;
+  dtv = calloc (dtv_length + 2, sizeof (dtv_t)); // Antonio: must use calloc to work with deallocate_dtv
+  memset (dtv, 0, ((dtv_length +2)*sizeof(dtv_t))); // added by Antonio
+  if (dtv != NULL)
+    {
+      /* This is the initial length of the dtv.  */
+      dtv[0].counter = dtv_length;
+
+      /* The rest of the dtv (including the generation counter) is
+	 Initialize with zero to indicate nothing there.  */
+
+      /* Add the dtv to the thread data structures.  */
+/* Install the dtv pointer.  The pointer passed is to the element with
+   index -1 which contain the length.  */
+  ((tcbhead_t *) (result))->dtv = (dtv) + 1;
+    }
+  else
+    result = NULL;
+
+  return result;
+}
+
+extern void * _dl_allocate_tls_init (void *result); // accessible trought the ld library loader
+
+#define DUMP_CUR_TCB    
+#ifdef DUMP_CUR_TCB
+void dump_current_tcb() 
+{
+    printf("tcbhead .tcb %p .dtv %p .self %p .multiple_threads %d .gscope %d\n",
+	 THREAD_GETMEM(THREAD_SELF, header.tcb),
+	 THREAD_GETMEM(THREAD_SELF, header.dtv),
+	 THREAD_GETMEM(THREAD_SELF, header.self),
+	 THREAD_GETMEM(THREAD_SELF, header.multiple_threads),
+	 THREAD_GETMEM(THREAD_SELF, header.gscope_flag));
+    printf("tcbhead .sysinfo %lx .stack_guard %lx .ptr_guard %lx .vgetcpu_ %lx:%lx\n",
+	 THREAD_GETMEM(THREAD_SELF, header.sysinfo),
+	 THREAD_GETMEM(THREAD_SELF, header.stack_guard),
+	 THREAD_GETMEM(THREAD_SELF, header.pointer_guard),
+	 THREAD_GETMEM(THREAD_SELF, header.vgetcpu_cache[0]),
+	 THREAD_GETMEM(THREAD_SELF, header.vgetcpu_cache[1]));
+    printf("tcbhead .futex %d .rtld_must_xmm_save %d .private_ss %p\n",
+# ifndef __ASSUME_PRIVATE_FUTEX
+	  THREAD_GETMEM(THREAD_SELF, header.private_futex),
+# else
+	  THREAD_GETMEM(THREAD_SELF, header.__unused1),
+# endif	   
+	 THREAD_GETMEM(THREAD_SELF, header.rtld_must_xmm_save),
+	 THREAD_GETMEM(THREAD_SELF, header.__private_ss));
+}
+#else
+#define dump_current_tcb() 
+#endif
+
+#define DUMP_CUR_DTV
+#ifdef DUMP_CUR_DTV
+void dump_current_dtv()
+{
+    int i, count, max;
+    dtv_t * dtva;
+    dtva = THREAD_GETMEM(THREAD_SELF, header.dtv);
+
+  /* NOTE the following I am not sure will work, must be checked : maybe must accessed via FS 
+   * NOTE DTV id(-1) has the number of elements available in the array,
+   * NOTE DTV id(0) the current number of elements in the array
+   */
+    max = dtva[-1].counter;
+    count = dtva[0].counter;
+    
+    for (i=-1; (i<(count +1) && (i<max)); i++)
+	printf("dtv[%2d] {counter:%ld} U {val:%p is_static:%x}\n",
+	      i, dtva[i].counter, dtva[i].pointer.val, dtva[i].pointer.is_static);
+}
+#else
+#define dump_current_dtv()
+#endif
+
+
 static backend_key_t backend_key = -1;
+static int init_calls=0;
+static unsigned long saved_selector = -1;
+static unsigned long selector = -1;
 
 void backend_init(void)
-{
-    int r = ____pthread_key_create(&backend_key, NULL);
-    if (r != 0) {
-        printf("pthread_key_create failed\n");
-    }
-    printf("%s: pthread_key_create %d\n", __func__, r);
+{  
+  printf("[main %ld] init_calls: %d\n", getpid(), ++init_calls);
+  if (init_calls > 1) 
+    exit(1);
 
+// alloca pthread keys --------------------------------------------------------  
+  int r = ____pthread_key_create(&backend_key, NULL);
+  if (r != 0) {
+      printf("pthread_key_create failed\n");
+  }
+  printf("%s: pthread_key_create %d\n", __func__, r);
+
+// TLS_TCB ALLOCATION ---------------------------------------------------------
 //from GLIBC /gnu/glibc/csu/libc-tls.c __libc_setup_tls    
-//initialize and set the TLS for the current thread
-struct backend * backendptr = malloc(sizeof(sizeof(struct backend)));
-    if (!backendptr) {
-	printf("%s: TLS allocation error\n", __func__);
-	exit (0);
-    }
-    memset(backendptr, 0, sizeof(struct backend));
-
-#define ARCH_SET_FS 0x1002
-#define ARCH_GET_FS 0x1003
+  int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
+  int tcb_offset= memsz + roundup(_dl_tls_static_size, 1);
+  struct backend * __backendptr =
+    malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN);
+  if (!__backendptr) {
+      printf("%s: TLS allocation error\n", __func__);
+      exit (0);
+  }
+  memset(__backendptr, 0, sizeof(struct backend));
     
-//copy previous content into current one (pthread self is ok to use here too)
-unsigned long selector = 0;
-syscall(__NR_arch_prctl, ARCH_GET_FS, &selector);    
-printf("SELF %p FS id %u addr 0x%lx ERRNO %p\n", THREAD_SELF, TLS_GET_FS(), selector, __errno_location ());
+  struct backend * backendptr = (void *) (((char*)__backendptr) + tcb_offset);
+  
+  printf("sizeof(struct backend) %ld(0x%lx) ",
+	 sizeof(struct backend), sizeof(struct backend));
+  printf("__backend %p backend %p (last addr %p)\n",
+	 __backendptr, backendptr, ((char*) backendptr) + sizeof (struct backend));
 
-int i;
-for (i = 0 ; i < sizeof( tcbhead_t); i++)
-  //void* dummy = THREAD_GETMEM_NC((struct backend *)THREAD_SELF, header.tcb, i);
-{
-    unsigned char __value;
-    asm volatile ("movb %%fs:%P2(%q3),%b0"				      
-		     : "=q" (__value)					      
-		     : "0" (0), "i" (0),   
-		       "r" (i));
-    ((unsigned char *)backendptr)[i] = __value;
-    printf("%.2x ", (unsigned int)__value);
-}
-printf("\n");
+// get the previous FS --------------------------------------------------------
+  __GET_FS(saved_selector);
+    
+// COPY TCB -------------------------------------------------------------------
+    long i;
+    for (i = 0; i < (signed int)sizeof( tcbhead_t); i++) 
+    {
+	unsigned char __value;
+	asm volatile ("movb %%fs:%P2(%q3),%b0"
+		      : "=q" (__value) : "0" (0), "i" (0), "r" (i)); 
+	((unsigned char *)backendptr)[i] = __value;
+    }
+#define DUMP_BACKEND    
+#ifdef DUMP_BACKEND
+//printf("\n");
 printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
 	backendptr->header.self, backendptr->header.tcb, THREAD_SELF);
+#endif
 
+// INSTALL TCB ----------------------------------------------------------------
     backendptr->header.self = backendptr; // <--- from pthread_create.c
     backendptr->header.tcb = backendptr; // <--- from pthread_create.c
+    
+    backendptr->specific[0] = backendptr->specific_1stblock;
+    backendptr->header.multiple_threads = 1; // ready to switch multithread - this is an heuristic
 
+// DTV ALLOCATION -------------------------------------------------------------
+    void* retptr = allocate_dtv(backendptr);
+    if (retptr == NULL) {
+      printf("allocation of dtv failed for cpu MAIN, exit\n");
+      exit(0);
+    }
+    printf("retptr %p (backendptr)\n", retptr);    
+
+// INSTALL DTV ----------------------------------------------------------------
+    if (_dl_allocate_tls_init (backendptr) == NULL) {
+      printf("allocation of tls failed for cpu MAIN, exit\n");
+      exit(0);
+    }    
+  dump_current_tcb();
+  dump_current_dtv(); 
+
+// COPY previous TLS -----------------------------------------------------------
+    for (i = -tcb_offset; i < 0; i++) 
+    {
+	unsigned char __value;
+	asm volatile ("movb %%fs:%P2(%q3),%b0"
+		      : "=q" (__value) : "0" (0), "i" (0), "r" (i)); 
+	((unsigned char *)backendptr)[i] = __value;
+    }
+
+// INSTALL NEW TCB ------------------------------------------------------------
+    __set_fs(backendptr);
+    __GET_FS(selector);
+
+//printf("ERRNO %p\n", __errno_location ());
+//printf("sleeping\n"); sleep(1);
+
+#ifdef DUMP_TLS_TCB
+    for (i = -tcb_offset ; i < (signed int)sizeof( tcbhead_t); i++) {
+	unsigned char __value;
+	asm volatile ("movb %%fs:%P2(%q3),%b0"				      
+		     : "=q" (__value) : "0" (0), "i" (0), "r" (i));
+    if (!i) printf("\n"); //separate TLS from TCB
+    printf("%.2x ", (unsigned int)__value);
+    }
+#endif
+
+#ifdef DUMP_BACKEND
+//printf("sleeping\n"); sleep(1);
+printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
+	backendptr->header.self, backendptr->header.tcb, THREAD_SELF);
+#endif
+
+  dump_current_tcb();
+  dump_current_dtv();
+
+//printf("sleeping\n"); sleep(1);
+}
+
+
+void backend_exit (void)
+{
+  int _ret;
+  //liberate the memory allocated
+// TODO  
+  //recovering previous state
+  printf("backend exit\n");
+  
+  FILE * fp = fopen("malloc.info", "w");
+  if (fp) {
+    _ret = malloc_info( 0, fp);
+    fclose(fp);
+    //printf("malloc info ret %d\n", _ret);
+  }
+  else
+    perror ("failed to open file\n");
+  
 {
     int _result;
 /* It is a simple syscall to set the %fs value for the thread.  */
@@ -432,35 +759,11 @@ printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
                     : "=a" (_result)                  
                     : "a" ((unsigned long int) __NR_arch_prctl),               
                       "D" ((unsigned long int) ARCH_SET_FS),                  
-                      "S" ((void*)backendptr)
+                      "S" ((void*)saved_selector)
                     : "memory", "cc", "r11", "cx");                           
 _result;
 }
 
-//printf("SELF %p FS %u\n", THREAD_SELF, TLS_GET_FS());
-//printf("SELF %p FS %u selector %d\n", THREAD_SELF, TLS_GET_FS(), (long)syscall(__NR_arch_prctl, ARCH_GET_FS));
-selector = 0;
-syscall(__NR_arch_prctl, ARCH_GET_FS, &selector);    
-printf("FS id %u addr 0x%lx\n", TLS_GET_FS(), selector);
-printf("ERRNO %p\n", __errno_location ());
-
-sleep(1);
-for (i = 0 ; i < sizeof( tcbhead_t); i++)
-  //void* dummy = THREAD_GETMEM_NC((struct backend *)THREAD_SELF, header.tcb, i);
-{
-    unsigned char __value;
-    asm volatile ("movb %%fs:%P2(%q3),%b0"				      
-		     : "=q" (__value)					      
-		     : "0" (0), "i" (0),   
-		       "r" (i));
-    //((unsigned char *)backendptr)[i] = __value;
-    printf("%.2x ", (unsigned int)__value);
-}
-printf("\n");
-printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
-	backendptr->header.self, backendptr->header.tcb, THREAD_SELF);
-
-sleep(1);
 }
 
 void backend_set_numa(unsigned id)
@@ -488,23 +791,26 @@ int backend_start_func (void * args)
 {
   int ret =
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
-  printf("%s: barg %p carg %p cfunc %p\n",
+/*  printf("%s: barg %p carg %p cfunc %p\n",
     __func__,  args, ((backend_args *)args)->cfunc,((backend_args *) args)->user);
-  free( args );
-  
-  syscall (__NR_exit, ret); // <--- to simulate pthread
+    */ // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
+//  free( args );
+ 
+/*   dump_current_tcb();
+  dump_current_dtv();
+ */
+  clone_exit(ret);
   /* never reaching here */
   return -1;
 }
 
 // we assume stack is growing downward (tipical in x86)
-#define STACK_SIZE 0x1000
+//#define STACK_SIZE 0x1000 //have a look at the beginning of the program! 
 // from glibc
 #define CLONE_SIGNAL            (CLONE_SIGHAND | CLONE_THREAD)
 
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
 {
-//    pthread_t pthread;
   int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
 #define GLIBC_STYLE 1
 #if GLIBC_STYLE      
@@ -517,27 +823,75 @@ void backend_run_func_on(int core_id, void* cfunc, void *arg)
 #endif
 		     | 0);
 #else
-   int clone_flags = (CLONE_THREAD|CLONE_SIGHAND|CLONE_VM); 
+   //int clone_flags = (CLONE_THREAD|CLONE_SIGHAND|CLONE_VM); // Marina's version
+    int clone_flags = (CLONE_VM | CLONE_SIGNAL
+		     | CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID
+		     | 0);
+
 #endif
-    struct backend * backendptr;
     pid_t ptid, ctid;
+    
+    
+    // TODO liberate the memory before creating new threads
+    
+    
     void * stack = malloc(STACK_SIZE);
     if (!stack) {
 	printf("stack allocation error");
 	exit (0);
     }
-    backendptr = malloc(sizeof(sizeof(struct backend)));
-    if (!backendptr) {
-	printf("TLS allocation error");
+    memset(stack, 0, STACK_SIZE);   
+ 
+    int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
+    int tcb_offset = memsz + roundup(_dl_tls_static_size, 1);
+    struct backend * __backendptr = malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN) ;
+    if (!__backendptr) {
+	printf("%s: TLS allocation error\n", __func__);
 	exit (0);
     }
-    memset(backendptr, 0, sizeof(struct backend));
-    backendptr->header.self = backendptr; // <--- from pthread_create.c
-    backendptr->header.tcb = backendptr; // <--- from pthread_create.c
+    memset(__backendptr, 0, ( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN));
+#ifdef DEBUG_MALLOC_BACKEND    
+    printf("malloc(tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld) @ %p\n",
+	  tcb_offset, sizeof(struct backend), TLS_INIT_TCB_ALIGN,
+	  (tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN), __backendptr);
+#endif    
+    
+    struct backend * backendptr = (void *) ((char*)__backendptr + tcb_offset);    
+    backendptr->header.self = backendptr; // <--- from pthread_create.c:501
+    backendptr->header.tcb = backendptr; // <--- from pthread_create.c:504
+    // nptl/allocatestack.c
+      /* The first TSD block is included in the TCB.  */
+    backendptr->specific[0] = backendptr->specific_1stblock;
+    backendptr->header.multiple_threads = 1; 
+
+//extern int * __libc_multiple_threads_ptr;     
+//    *__libc_multiple_threads_ptr = 1;
+    
+    THREAD_COPY_STACK_GUARD (backendptr);
+    THREAD_COPY_POINTER_GUARD (backendptr);
+    
+#ifndef __ASSUME_PRIVATE_FUTEX       
+      /* The thread must know when private futexes are supported.  */
+      backendptr->header.private_futex =
+	  THREAD_GETMEM (THREAD_SELF, header.private_futex);
+#endif     
+    /* Copy the sysinfo value from the parent.  */
+    backendptr->header.sysinfo = THREAD_GETMEM (THREAD_SELF, header.sysinfo);
+	  
+    // DTV support /gnu/glibc/elf/dl-tls.c
+    void* retptr = allocate_dtv(backendptr);
+    if (retptr == NULL) {
+      printf("allocation of dtv failed for cpu %d, exit\n", core_id);
+      exit(0);
+    }
+    if (_dl_allocate_tls_init (retptr) == NULL) {
+      printf("allocation of tls failed for cpu %d, exit\n", core_id);
+      exit(0);
+    }
       
     backend_args * bkargs = malloc(sizeof(backend_args));
     if (!bkargs) {
-	printf("args allocation error");
+	printf("args allocation error\n");
 	exit (0);      
     }
     bkargs->user = arg;
@@ -549,19 +903,17 @@ void backend_run_func_on(int core_id, void* cfunc, void *arg)
      * :75 int rc = ARCH_CLONE (fct, STACK_VARIABLES_ARGS, clone_flags,
      *                   pd, &pd->tid, pd, &pd->tid);
      */    
-    //r = clone(cfunc, (stack+STACK_SIZE), clone_flags, arg, &ptid, 0, &ctid);
-    //r = clone(cfunc, (stack+STACK_SIZE), clone_flags, arg, &ptid, backend_t, &ctid);
     //r = clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, 0, &ctid);
-    printf ("%s: cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
-	    __func__, core_id, 
-	    (stack+STACK_SIZE), backendptr, 
-	    bkargs, arg, backend_start_func, cfunc);
     r = clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, backendptr, &ctid);
     if (r == -1) {
         //printf("clone failed\n");
 	perror("clone failed");
 	exit (0);
     }
+    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
+	    __func__, r, core_id, 
+	    (stack+STACK_SIZE), backendptr, 
+	    bkargs, arg, backend_start_func, cfunc);
 }
 
 // from glibc
@@ -570,18 +922,20 @@ void * ____pthread_getspecific (backend_key_t key)
   struct backend_key_data *data;
 
     if (key == -1)
-      printf("ERRORRR!\n");
+      printf("%s: ERROR key == -1\n", __func__);
   
   /* Special case access to the first 2nd-level block.  This is the
      usual case.  */
-  if ( key < PTHREAD_KEY_2NDLEVEL_SIZE )
-    data = &THREAD_SELF->specific_1stblock[key];
-  else
+  if ( key < PTHREAD_KEY_2NDLEVEL_SIZE ) {
+    data = &(THREAD_SELF->specific_1stblock[key]);
+  }else
     {
       /* Verify the key is sane.  */
-      if (key >= PTHREAD_KEYS_MAX)
+      if (key >= PTHREAD_KEYS_MAX) {
 	/* Not valid.  */
+	printf("%s: ERROR key >= PTHREAD_KEYS_MAX (%d)\n", __func__, key);
 	return NULL;
+      }
 
       unsigned int idx1st = key / PTHREAD_KEY_2NDLEVEL_SIZE;
       unsigned int idx2nd = key % PTHREAD_KEY_2NDLEVEL_SIZE;
@@ -591,9 +945,11 @@ void * ____pthread_getspecific (backend_key_t key)
 	 return NULL, too.  */
       struct backend_key_data *level2 = THREAD_GETMEM_NC (THREAD_SELF,
 							  specific, idx1st);
-      if (level2 == NULL)
+      if (level2 == NULL) {
 	/* Not allocated, therefore no data.  */
+	printf("%s: ERROR level2 == NULL\n", __func__);
 	return NULL;
+      }
 
       /* There is data.  */
       data = &level2[idx2nd];
@@ -608,6 +964,7 @@ void * ____pthread_getspecific (backend_key_t key)
 	result = data->data = NULL;
     }
 
+//printf("get_specific %d(%ld) %p [%p]\n", key, data->seq, result, THREAD_SELF); sleep(1);
   return result;
 }
 
@@ -626,17 +983,20 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
   unsigned int seq;
 
   if (key == -1)
-    printf("ERRORRR!\n");
+    printf("%s: ERROR key == -1\n", __func__);
   
   self = THREAD_SELF;
+
   /* Special case access to the first 2nd-level block.  This is the usual case.  */
   if ( key < PTHREAD_KEY_2NDLEVEL_SIZE )
     {
       /* Verify the key is sane.  */
-      if (KEY_UNUSED ((seq = ____pthread_keys[key].seq)))
+      if (KEY_UNUSED ((seq = ____pthread_keys[key].seq))) {
 	/* Not valid.  */
+	printf("%s: ERROR KEY_UNUSED key %d seq %d\n", __func__, key, seq);
 	return EINVAL;
-      level2 = &self->specific_1stblock[key];
+      }
+      level2 = &(self->specific_1stblock[key]);
       /* Remember that we stored at least one set of data.  */
       if (value != NULL)
 	THREAD_SETMEM (self, specific_used, 1);
@@ -644,9 +1004,11 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
   else
     {
       if (key >= PTHREAD_KEYS_MAX
-	  || KEY_UNUSED ((seq = ____pthread_keys[key].seq)))
+	  || KEY_UNUSED ((seq = ____pthread_keys[key].seq))) {
 	/* Not valid.  */
+	printf("%s: ERROR key >= PTHREAD_KEYS_MAX (%d)\n", __func__, key);
 	return EINVAL;
+      }
 
       idx1st = key / PTHREAD_KEY_2NDLEVEL_SIZE;
       idx2nd = key % PTHREAD_KEY_2NDLEVEL_SIZE;
@@ -681,7 +1043,8 @@ int ____pthread_setspecific (backend_key_t key, const void *value)
      stale data.  */
   level2->seq = seq;
   level2->data = (void *) value;
-
+  
+//printf("set_specific %u(%ld) %p [%p]\n", key, level2->seq, level2->data, self); sleep(1);
   return 0;
 }
 
