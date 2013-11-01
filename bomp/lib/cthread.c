@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
-//#include <sched.h>
+#include <sched.h>
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -126,25 +126,7 @@ static inline unsigned long __set_fs (void * address)
 #undef offsetof
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
-/* the following code is extracted from glibc */
-#ifndef __cpu_set_t_defined
-# define __cpu_set_t_defined
-/* Size definition for CPU sets.  */
-# define __CPU_SETSIZE	1024
-# define __NCPUBITS	(8 * sizeof (__cpu_mask))
 
-/* Type for array elements in 'cpu_set_t'.  */
-typedef unsigned long int __cpu_mask;
-
-/* Basic access functions.  */
-# define __CPUELT(cpu)	((cpu) / __NCPUBITS)
-# define __CPUMASK(cpu)	((__cpu_mask) 1 << ((cpu) % __NCPUBITS))
-
-/* Data structure to describe CPU mask.  */
-typedef struct _cpu_set_t
-{
-	  __cpu_mask __bits[__CPU_SETSIZE / __NCPUBITS];
-} cpu_set_t;
 
 # if __GNUC_PREREQ (2, 91)
 #  define __CPU_ZERO_S(setsize, cpusetp) \

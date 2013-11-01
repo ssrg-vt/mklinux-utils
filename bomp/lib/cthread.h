@@ -26,12 +26,31 @@ int cthread_create (cthread_t *thread, void* attr, void *(*start_routine)(void*)
 //void pthread_exit(void *value_ptr); // a correspondent pthread exists but the idea is to terminate the thread before the normal exit (differently from here)
 //cthread_exit(ret); // this must be hidden inside the thread return function
 
-int cthread_setaffinity_np(pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset); // NOTE first argument is not pthread or cthread
-//int cthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset); // TODO
-
 int cthread_key_create (cthread_key_t *key, void (*destr) (void *));
 void * cthread_getspecific(cthread_key_t key);
 int cthread_setspecific (cthread_key_t key, const void *value);
 
 cthread_t cthread_self (void );
 
+/* the following code is extracted from glibc */
+#ifndef __cpu_set_t_defined
+# define __cpu_set_t_defined
+/* Size definition for CPU sets.  */
+# define __CPU_SETSIZE	1024
+# define __NCPUBITS	(8 * sizeof (__cpu_mask))
+
+/* Type for array elements in 'cpu_set_t'.  */
+typedef unsigned long int __cpu_mask;
+
+/* Basic access functions.  */
+# define __CPUELT(cpu)	((cpu) / __NCPUBITS)
+# define __CPUMASK(cpu)	((__cpu_mask) 1 << ((cpu) % __NCPUBITS))
+
+/* Data structure to describe CPU mask.  */
+typedef struct _cpu_set_t
+{
+	  __cpu_mask __bits[__CPU_SETSIZE / __NCPUBITS];
+} cpu_set_t;
+
+int cthread_setaffinity_np(pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)  ; // NOTE first argument is not pthread or cthread
+//int cthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset); // TODO
