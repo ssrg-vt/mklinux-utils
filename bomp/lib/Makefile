@@ -12,7 +12,7 @@ CFLAGS = -DPOSIX -g -m64
 # TODO --- add a switch to select linux_ or popcorn_
 #libbomp.a: linux_backend.o omp.o parallel.o processing.o
 
-libbomp.a: popcorn_backend.o omp.o parallel.o processing.o
+libbomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o
 	$(AR) -q $@ $^
 
 clean:
