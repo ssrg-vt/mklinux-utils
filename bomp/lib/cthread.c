@@ -11,15 +11,29 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
-//#include <numa.h>
-#include <sched.h>
-//#include <pthread.h>
+//#include <sched.h>
 
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <asm/ldt.h>
 
 #include "cthread.h"
+
+/* the following code is extracted from glibc */
+// /sysdeps/unix/sysv/linux/sched_setaffinty.c
+#ifndef __NR_sched_setaffinity
+  #error "syscall sched_setaffinity not defined"
+#endif
+
+#ifndef __NR_arch_prctl
+  #error "syscall arch_prctl not defined"
+#endif
+
+#ifndef __NR_exit
+  #error "syscall exit not defined"
+#endif
+
+
 
 // value copied from is.c
 //NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread!
@@ -84,7 +98,7 @@ static inline unsigned long clone_exit (int ret)
   return _ret;
 }
 
-#define ARCH_SET_FS 0x1002
+#define    0x1002
 #define ARCH_GET_FS 0x1003
 
 
@@ -159,11 +173,7 @@ typedef struct _cpu_set_t
 
 
 
-/* the following code is extracted from glibc */
-// /sysdeps/unix/sysv/linux/sched_setaffinty.c
-#ifndef __NR_sched_setaffinity
-  #error "syscall sched_setaffinity not defined"
-#endif
+
 
 static size_t __kernel_cpumask_size = 0;
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
@@ -300,6 +310,30 @@ struct backend {
 };
 
 
+/* NOTE: struct pthread's first entry is a tcbhead_t
+ * from glibc/nptl/descr.h
+ * struct pthread
+ * {
+ *   union
+ *   {
+ * #if !TLS_DTV_AT_TP
+ *   tcbhead_t header;
+ */
+/* Return the thread descriptor for the current thread.
+   The contained asm must *not* be marked volatile since otherwise
+   assignments like
+   pthread_descr self = thread_self();
+   do not get optimized away.  */
+// struct pthread is a union
+// header.self vedi glibc/nptl/sysdeps/x86_64/tls.h
+# define THREAD_SELF \
+  ({ struct backend *__self;						      \
+     asm ("mov %%fs:%c1,%0" : "=r" (__self)				      \
+	  : "i" (offsetof (struct backend, header.self)));	 	      \
+     __self;})
+
+cthread_t cthread_self (void )
+{	return (cthread_t)THREAD_SELF; }
 
 
 
@@ -453,13 +487,12 @@ struct backend {
   ((descr)->header.pointer_guard					      \
    = THREAD_GETMEM (THREAD_SELF, header.pointer_guard))
 
-/* Keys for thread-specific data */
-typedef unsigned int backend_key_t;
+
 
 /* Table of the key information.  */
 static struct pthread_key_struct ____pthread_keys[PTHREAD_KEYS_MAX];
 
-int cthread_key_create (backend_key_t *key, void (*destr) (void *))
+int cthread_key_create (cthread_key_t *key, void (*destr) (void *))
 {
   /* Find a slot in __pthread_kyes which is unused.  */
   size_t cnt;
@@ -589,13 +622,13 @@ void dump_current_dtv()
 #endif
 
 
-static backend_key_t backend_key = -1;
+static cthread_key_t backend_key = -1;
 static int init_calls=0;
 //static unsigned long saved_selector = -1; // now in popcorn_backend.c
 static unsigned long selector = -1;
 
 // from glibc
-void * cthread_getspecific (backend_key_t key)
+void * cthread_getspecific (cthread_key_t key)
 {
   struct backend_key_data *data;
 
@@ -647,7 +680,7 @@ void * cthread_getspecific (backend_key_t key)
 }
 
 // from glibc
-int cthread_setspecific (backend_key_t key, const void *value)
+int cthread_setspecific (cthread_key_t key, const void *value)
 {
   struct backend *self;
   struct backend_key_data *level2;
@@ -830,6 +863,28 @@ unsigned long cthread_initialize ()
 
   return saved_selector;
 }
+
+void cthread_restore (unsigned long selector)
+{
+
+	// TODO
+	//here there is maybe memory to liberate before switching context
+
+	{
+	    int _result;
+	/* It is a simple syscall to set the %fs value for the thread.  */
+	      __asm__ __volatile__ ("syscall"
+	                    : "=a" (_result)
+	                    : "a" ((unsigned long int) __NR_arch_prctl),
+	                      "D" ((unsigned long int) ARCH_SET_FS),
+	                      "S" ((void*)selector)
+	                    : "memory", "cc", "r11", "cx");
+	_result;
+	}
+
+}
+
+
 
 
 //TODO MUST BE INTEGRATEEEE!!!
