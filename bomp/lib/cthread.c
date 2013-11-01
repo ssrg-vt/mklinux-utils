@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
-#include <sched.h>
+#include <sched.h> //necessary for clone
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -98,7 +98,7 @@ static inline unsigned long clone_exit (int ret)
   return _ret;
 }
 
-#define    0x1002
+#define ARCH_SET_FS 0x1002
 #define ARCH_GET_FS 0x1003
 
 
@@ -127,31 +127,6 @@ static inline unsigned long __set_fs (void * address)
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
 
-
-# if __GNUC_PREREQ (2, 91)
-#  define __CPU_ZERO_S(setsize, cpusetp) \
-	  do __builtin_memset (cpusetp, '\0', setsize); while (0)
-# else
-#  define __CPU_ZERO_S(setsize, cpusetp) \
-	  do {									      \
-		      size_t __i;								      \
-		      size_t __imax = (setsize) / sizeof (__cpu_mask);			      \
-		      __cpu_mask *__bits = (cpusetp)->__bits;				      \
-		      for (__i = 0; __i < __imax; ++__i)					      \
-		        __bits[__i] = 0;							      \
-		    } while (0)
-# endif
-# define __CPU_SET_S(cpu, setsize, cpusetp) \
-	  (__extension__							      \
-	      ({ size_t __cpu = (cpu);						      \
-	             __cpu < 8 * (setsize)						      \
-	             ? (((__cpu_mask *) ((cpusetp)->__bits))[__CPUELT (__cpu)]		      \
-			     	 |= __CPUMASK (__cpu))						      \
-	             : 0; }))
-
-# define CPU_ZERO(cpusetp)	 __CPU_ZERO_S (sizeof (cpu_set_t), cpusetp)
-# define CPU_ZERO_S(setsize, cpusetp)	    __CPU_ZERO_S (setsize, cpusetp)
-#endif
 
 
 
@@ -604,8 +579,7 @@ void dump_current_dtv()
 #endif
 
 
-static cthread_key_t backend_key = -1;
-static int init_calls=0;
+
 //static unsigned long saved_selector = -1; // now in popcorn_backend.c
 static unsigned long selector = -1;
 
@@ -894,7 +868,7 @@ int backend_start_func (void * args)
  */
 
 
-  cthread_exit(ret);
+  clone_exit(ret);
   /* never reaching here */
   return -1;
 }
@@ -905,8 +879,9 @@ int backend_start_func (void * args)
 #define CLONE_SIGNAL            (CLONE_SIGHAND | CLONE_THREAD)
 
 //int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg);
-int cthread_create (cthread_t *thread, void* attr, void *(*start_routine)(void*), void *arg)
+int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
 {
+	int core_id = (int) attr;
   int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
 	#define GLIBC_STYLE 1
 	#if GLIBC_STYLE

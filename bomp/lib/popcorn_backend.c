@@ -47,12 +47,15 @@ void backend_set_numa(unsigned id)
 
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
 {
-    int r = cthread_create(&, NULL, cfunc, arg);
+	cthread_t tid;
+    int r = cthread_create(&tid, NULL, cfunc, arg);
     if (r == -1) {
         printf("%s: [main %ld] cthread_create %d FAILED\n", __func__, getpid(), r);
         exit (-1);
     }
 }
+
+static cthread_key_t backend_key = -1;
 
 void *backend_get_tls(void)
 {
@@ -83,6 +86,8 @@ void backend_span_domain(int nos_threads, size_t stack_size)
 {
     /* nop */
 }
+
+static int init_calls=0;
 
 void backend_init(void)
 {
