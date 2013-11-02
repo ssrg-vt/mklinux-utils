@@ -11,11 +11,10 @@
 
 #include "cthread.h"
 
-//#if 1
-#if 0
+#if 1
 // CHILD DIES FIRST
- #define PARENT_SLEEP 15
- #define CHILD_SLEEP 5
+ #define PARENT_SLEEP 7
+ #define CHILD_SLEEP 3
 #else
 // PARENT DIES FIRST
  #define PARENT_SLEEP 5
@@ -36,15 +35,28 @@ int main (int argc, char * argv[])
   int res;
 
   printf("pre pthread\n");
-  res = cthread_create(&pt, &attr, fun, 0);
-
-  if (res != 0) {
-    perror("pthread_create");
-    return 1;
-  }
+  res = cthread_create(&pt, 0, fun, 0);
+printf("cthread_create returned %d\n", res);
+//  if (res != 0) {
+//    perror("pthread_create");
+//    return 1;
+//  }
   printf("after pthread\n");
   sleep(PARENT_SLEEP);
   printf("out main\n");
+
+  printf("pre pthread\n");
+  res = cthread_create(&pt, 0, fun, 0);
+printf("cthread_create returned %d\n", res);
+//  if (res != 0) {
+//    perror("pthread_create");
+//    return 1;
+//  }
+  printf("after pthread\n");
+  sleep(PARENT_SLEEP);
+  printf("out main\n");
+
+
   return 0;
 }
 
