@@ -48,7 +48,7 @@ void backend_set_numa(unsigned id)
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
 {
 	cthread_t tid;
-    int r = cthread_create(&tid, NULL, cfunc, arg);
+    int r = cthread_create(&tid, (void*)core_id, cfunc, arg);
     if (r == -1) {
         printf("%s: [main %ld] cthread_create %d FAILED\n", __func__, getpid(), r);
         exit (-1);

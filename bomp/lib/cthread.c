@@ -5,6 +5,8 @@
  * Copyright Antonio Barbalace, SSRG, VT, 2013
  */
 
+// THIS LIBRARY IS WORK IN PROGRESS
+
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
