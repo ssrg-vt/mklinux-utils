@@ -1,7 +1,7 @@
 #CC_FLAGS=-DDEBUG
 LIB = popcorn.o
 
-all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk tunnel kcore
+all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk tunnel kcore mpart
 
 
 
