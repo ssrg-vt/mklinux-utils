@@ -137,13 +137,15 @@ static inline unsigned long __set_fs (void * address)
 static size_t __kernel_cpumask_size = 0;
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
+    //return sched_setaffinity(pid,cpusetsize,cpuset);
+  
   if (__kernel_cpumask_size == 0 )
   {
     int res;
     size_t psize = 8;
     void *p = malloc (psize);
     memset(p, 0xFF, psize);
-
+    
     while ( (res = syscall (__NR_sched_setaffinity, pid, psize, p)) < 0 ) {
       psize = 2*psize;
       p = (void*) realloc (p, psize);
@@ -151,18 +153,18 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
       printf("try %d %d\n", psize, res);
     }
 
-      __kernel_cpumask_size = psize;
+      __kernel_cpumask_size = 8;
       printf("__kernel_cpumask_size is %d\n", psize);
   }
 
-  /* We now know the size of the kernel cpumask_t.
-   * Make sure the user does not request to set a bit beyond that.  */
+  // We now know the size of the kernel cpumask_t.
+  // * Make sure the user does not request to set a bit beyond that.  
   size_t cnt;
   for (cnt = __kernel_cpumask_size; cnt < cpusetsize; ++cnt)
     if (((char *) cpuset)[cnt] != '\0')
       {
-        /* Found a nonzero byte.  This means the user request cannot be
-	fulfilled.  */
+        // Found a nonzero byte.  This means the user request cannot be
+	//fulfilled.  
 	return -1;
       }
 
@@ -487,7 +489,7 @@ int cthread_key_create (cthread_key_t *key, void (*destr) (void *))
 
 /* Size of the static TLS block.  Giving this initialized value
    preallocates some surplus bytes in the static TLS area.  */
-size_t _dl_tls_static_size = 2048;
+size_t _dl_tls_static_size = 1024;
 
 # define TLS_INIT_TCB_ALIGN __alignof__ (struct backend)
 
@@ -563,6 +565,7 @@ void dump_current_dtv()
 {
     int i, count, max;
     dtv_t * dtva;
+    printf("%s\n",__func__);
     dtva = THREAD_GETMEM(THREAD_SELF, header.dtv);
 
   /* NOTE the following I am not sure will work, must be checked : maybe must accessed via FS
@@ -575,6 +578,7 @@ void dump_current_dtv()
     for (i=-1; (i<(count +1) && (i<max)); i++)
 	printf("dtv[%2d] {counter:%ld} U {val:%p is_static:%x}\n",
 	      i, dtva[i].counter, dtva[i].pointer.val, dtva[i].pointer.is_static);
+    printf("~%s\n",__func__);
 }
 #else
 #define dump_current_dtv()
@@ -783,7 +787,7 @@ unsigned long cthread_initialize ()
 	    }
 	  dump_current_tcb();
 	  dump_current_dtv();
-
+        printf("copying previous tls\n");
 	// COPY previous TLS -----------------------------------------------------------
 	    for (i = -tcb_offset; i < 0; i++)
 	    {
@@ -792,14 +796,16 @@ unsigned long cthread_initialize ()
 			      : "=q" (__value) : "0" (0), "i" (0), "r" (i));
 		((unsigned char *)backendptr)[i] = __value;
 	    }
-
+        printf("done copying previous tls\n");
+        printf("setting fs and getting fs\n");
 	// INSTALL NEW TCB ------------------------------------------------------------
 	    __set_fs(backendptr);
 	    __GET_FS(selector);
+        printf("done getting fs\n");
 
 	//printf("ERRNO %p\n", __errno_location ());
 	//printf("sleeping\n"); sleep(1);
-
+    printf("dumping tls tcb\n");
 	#ifdef DUMP_TLS_TCB
 	    for (i = -tcb_offset ; i < (signed int)sizeof( tcbhead_t); i++) {
 		unsigned char __value;
@@ -809,12 +815,15 @@ unsigned long cthread_initialize ()
 	    printf("%.2x ", (unsigned int)__value);
 	    }
 	#endif
+    printf("done dumping tls tcb\n");
 
+    printf("dumping backend\n");
 	#ifdef DUMP_BACKEND
 	//printf("sleeping\n"); sleep(1);
 	printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
 		backendptr->header.self, backendptr->header.tcb, THREAD_SELF);
 	#endif
+    printf("done dumping backend\n");
 
 	  dump_current_tcb();
 	  dump_current_dtv();
@@ -885,7 +894,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 {
 	int core_id = (int) attr;
   int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
-	#define GLIBC_STYLE 1
+	#define GLIBC_STYLE 0
 	#if GLIBC_STYLE
 	  int clone_flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGNAL
 			     | CLONE_SETTLS | CLONE_PARENT_SETTID
@@ -904,7 +913,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	#endif
 	    pid_t ptid, ctid;
 
-
+    printf("HELLO?");
 // TODO liberate the memory before creating new threads
 // TODO --- we can maintain a list ---
 // TODO
@@ -992,7 +1001,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 
 // TODO	    DO I HAVE TO SAVE _backend_args here?!
 
-
+    printf("Goodbye\n");
 return r;
 
 }

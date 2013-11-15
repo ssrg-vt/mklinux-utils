@@ -93,6 +93,8 @@ void GOMP_atomic_end (void)
 
 void parallel_init(void)
 {
+    printf("%s\n",__func__);
    bomp_lock_init(&atomic_lock);
    bomp_lock_init(&critical_lock);
+   printf("~%s\n",__func__);
 }

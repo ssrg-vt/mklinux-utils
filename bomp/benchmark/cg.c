@@ -119,11 +119,13 @@ int main(int argc, char **argv) {
         printf("Usage: %s <Number of threads>\n", argv[0]);
         abort();
     }
-
+    printf("ABOUT TO DO CUSTOM INIT\n");
 #ifdef BOMP
     bomp_custom_init();
+    printf("CUSTOM INIT FINISHED\n");
     backend_span_domain_default(atoi(argv[1]));
 #endif
+    printf("RETURNED FROM BACKEND SPAN DOMAIN\n");
 
     printf("Benchmark start");
 

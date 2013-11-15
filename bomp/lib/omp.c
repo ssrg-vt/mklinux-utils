@@ -22,8 +22,10 @@ bool bomp_nested_behaviour = false;
 
 void bomp_custom_init(void)
 {
+    printf("%s\n",__func__);
     parallel_init();
     backend_init();
+    printf("~%s\n",__func__);
 }
 
 void bomp_custom_exit(void)
