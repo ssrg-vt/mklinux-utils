@@ -31,7 +31,7 @@ is-gomp:
 cg-bomp:
 	gcc -c wtime.c -DPOSIX -g -O2
 	gcc -c cg.c c_print_results.c c_randdp.c c_timers.c -DBOMP -fopenmp -g -O2
-	gcc -g -o cg-bomp cg.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libbomp.a -g -lm
+	gcc -o cg-bomp cg.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libbomp.a -g -lm
 #	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -g -O2 libpthread.a
 
 ep-bomp:

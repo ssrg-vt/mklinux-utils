@@ -36,7 +36,6 @@ static void bomp_set_tls(void *xdata)
 static int bomp_thread_fn(void *xdata)
 {
     struct bomp_work *work_data = xdata;
-
     backend_set_numa(work_data->thread_id);
 
     bomp_set_tls(work_data);
@@ -103,7 +102,6 @@ void bomp_end_processing(void)
     /* Cleaning of thread_local and work data structures */
     int i = 0;
     count++;
-
     bomp_barrier_wait(g_array_thread_local_data[i]->work->barrier);
 
     /* Clear the barrier created */

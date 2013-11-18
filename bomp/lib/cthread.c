@@ -93,11 +93,8 @@
 // to simulate pthread on exit
 static inline unsigned long clone_exit (int ret)
 {
-  unsigned long _ret;
-  __asm__ __volatile__ ("syscall\n"
-			: "=a" (_ret)
-			:"a" (__NR_exit), "d" (ret));
-  return _ret;
+    exit(ret);
+    return 0;
 }
 
 #define ARCH_SET_FS 0x1002
@@ -137,40 +134,7 @@ static inline unsigned long __set_fs (void * address)
 static size_t __kernel_cpumask_size = 0;
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
-    //return sched_setaffinity(pid,cpusetsize,cpuset);
-  
-  if (__kernel_cpumask_size == 0 )
-  {
-    int res;
-    size_t psize = 8;
-    void *p = malloc (psize);
-    memset(p, 0xFF, psize);
-    
-    while ( (res = syscall (__NR_sched_setaffinity, pid, psize, p)) < 0 ) {
-      psize = 2*psize;
-      p = (void*) realloc (p, psize);
-      memset(p, 0xFF, psize);
-      printf("try %d %d\n", psize, res);
-    }
-
-      __kernel_cpumask_size = 8;
-      printf("__kernel_cpumask_size is %d\n", psize);
-  }
-
-  // We now know the size of the kernel cpumask_t.
-  // * Make sure the user does not request to set a bit beyond that.  
-  size_t cnt;
-  for (cnt = __kernel_cpumask_size; cnt < cpusetsize; ++cnt)
-    if (((char *) cpuset)[cnt] != '\0')
-      {
-        // Found a nonzero byte.  This means the user request cannot be
-	//fulfilled.  
-	return -1;
-      }
-
-  int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
-
-  return result;
+    return sched_setaffinity(pid,cpusetsize,cpuset);
 }
 
 #define PTHREAD_KEYS_MAX 8

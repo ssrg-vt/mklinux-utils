@@ -41,7 +41,6 @@ void backend_set_numa(unsigned id)
     cpu_set_t cpu_mask;
     CPU_ZERO(&cpu_mask);
     CPU_SET(id, &cpu_mask);
-
     cthread_setaffinity_np(0, sizeof(cpu_set_t), &cpu_mask);
 }
 
