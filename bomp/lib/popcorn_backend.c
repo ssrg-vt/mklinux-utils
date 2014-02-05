@@ -51,7 +51,7 @@ void backend_run_func_on(int core_id, void* cfunc, void *arg)
     int r = cthread_create(&tid, (void*)core_id, cfunc, arg);
     if (r == -1) {
         printf("%s: [main %ld] cthread_create %d FAILED\n", __func__, getpid(), r);
-        exit (-1);
+        exit (1234);
     }
 }
 
@@ -94,13 +94,13 @@ void backend_init(void)
   // check if the function was called before ----------------------------------
   printf("%s: [main %ld] init_call %d\n", __func__, getpid(), ++init_calls);
   if (init_calls > 1)
-    exit(1);
+    exit(1234);
 
   // alloca pthread keys ------------------------------------------------------
   int r = cthread_key_create(&backend_key, NULL);
   if (r != 0) {
       printf("%s: cthread_key_create %d FAILED\n", __func__, r);
-      exit(1);
+      exit(1234);
   }
   printf("%s: cthread_key_create %d\n", __func__, r);
 

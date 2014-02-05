@@ -26,6 +26,10 @@
 #ifndef __NR_sched_setaffinity
   #error "syscall sched_setaffinity not defined"
 #endif
+#ifndef __NR_sched_getaffinity
+  #error "syscall sched_getaffinity not defined"
+#endif
+
 
 #ifndef __NR_arch_prctl
   #error "syscall arch_prctl not defined"
@@ -90,13 +94,17 @@
      }
 #endif
 
-// to simulate pthread on exit
+// to simulate pthread on exit (the original code from glibc/nptl/sysdeps/x86_64/pthreaddef.h follows)
+/* While there is no such syscall.  */
+//#define __exit_thread_inline(val) \
+//  asm volatile ("syscall" :: "a" (__NR_exit), "D" (val))
 static inline unsigned long clone_exit (int ret)
 {
   unsigned long _ret;
   __asm__ __volatile__ ("syscall\n"
 			: "=a" (_ret)
-			:"a" (__NR_exit), "d" (ret));
+			:"a" (__NR_exit), "D" (ret)
+			:"memory");
   return _ret;
 }
 
@@ -144,7 +152,7 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
     void *p = malloc (psize);
     memset(p, 0xFF, psize);
 
-    while ( (res = syscall (__NR_sched_setaffinity, pid, psize, p)) < 0 ) {
+    while ( (res = syscall (__NR_sched_getaffinity, pid, psize, p)) < 0 ) {
       psize = 2*psize;
       p = (void*) realloc (p, psize);
       memset(p, 0xFF, psize);
@@ -152,7 +160,7 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
     }
 
       __kernel_cpumask_size = psize;
-      printf("__kernel_cpumask_size is %d\n", psize);
+//      printf("__kernel_cpumask_size is %d\n", psize);
   }
 
   /* We now know the size of the kernel cpumask_t.
@@ -163,10 +171,15 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
       {
         /* Found a nonzero byte.  This means the user request cannot be
 	fulfilled.  */
-	return -1;
+	return 4321;
       }
 
-  int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
+//  int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
+  unsigned long result = 0;
+  __asm__ __volatile__ ("syscall\n"
+			: "=a" (result)
+			: "a" (__NR_sched_setaffinity), "D" (pid), "S" (cpusetsize), "d" (cpuset)
+			: "memory");
 
   return result;
 }
@@ -853,7 +866,7 @@ typedef struct _backend_args {
 } backend_args;
 
 int backend_start_func (void * args)
-{
+{ int _ret;
   int ret =
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 
@@ -870,9 +883,10 @@ int backend_start_func (void * args)
  */
 
 
-  clone_exit(ret);
+  _ret = clone_exit(ret);
+//  exit(ret);
   /* never reaching here */
-  return -1;
+  return (3333 + _ret);
 }
 
 // we assume stack is growing downward (tipical in x86)
@@ -984,11 +998,11 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		perror("clone failed");
 //		exit (0);
 	    }
-	    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
+/*	    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
 		    __func__, r, core_id,
 		    (stack+STACK_SIZE), backendptr,
 		    bkargs, arg, backend_start_func, cfunc);
-
+*/
 
 // TODO	    DO I HAVE TO SAVE _backend_args here?!
 

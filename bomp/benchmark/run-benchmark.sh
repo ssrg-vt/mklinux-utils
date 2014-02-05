@@ -10,14 +10,16 @@
 ##########################################################################
 
 rm -f results*.txt
+CORES="1 2 4 8 16 24 32 48 64"
 
-for i in `seq 1 $MAXCORES`; do
-    ./scalability-gomp $i >> results_scalability_gomp.txt
-    ./scalability-bomp $i >> results_scalability_bomp.txt
-    ./cg-gomp $i >> results_cg_gomp.txt
+#for i in `seq 1 $MAXCORES`; do
+for i in $CORES ; do
+#    ./scalability-gomp $i >> results_scalability_gomp.txt
+#    ./scalability-bomp $i >> results_scalability_bomp.txt
+#    ./cg-gomp $i >> results_cg_gomp.txt
     ./cg-bomp $i >> results_cg_bomp.txt
-    ./ft-gomp $i >> results_ft_gomp.txt
+#    ./ft-gomp $i >> results_ft_gomp.txt
     ./ft-bomp $i >> results_ft_bomp.txt
-    ./is-gomp $i >> results_is_gomp.txt
+#    ./is-gomp $i >> results_is_gomp.txt
     ./is-bomp $i >> results_is_bomp.txt
 done

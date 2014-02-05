@@ -65,6 +65,7 @@ typedef struct _cpu_set_t
 # define CPU_ZERO_S(setsize, cpusetp)	    __CPU_ZERO_S (setsize, cpusetp)
 #endif
 
+//#define cthread_setaffinity_np sched_setaffinity
 int cthread_setaffinity_np(pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)  ; // NOTE first argument is not pthread or cthread
 //int cthread_getaffinity_np(pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset); // TODO
 
