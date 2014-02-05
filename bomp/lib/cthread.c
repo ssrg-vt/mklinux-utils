@@ -500,7 +500,7 @@ int cthread_key_create (cthread_key_t *key, void (*destr) (void *))
 
 /* Size of the static TLS block.  Giving this initialized value
    preallocates some surplus bytes in the static TLS area.  */
-size_t _dl_tls_static_size = 2048;
+static size_t _dl_tls_static_size = 2048;
 
 # define TLS_INIT_TCB_ALIGN __alignof__ (struct backend)
 
