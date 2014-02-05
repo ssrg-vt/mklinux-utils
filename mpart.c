@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "bit.h"
+//#include "bit.h"
 
 unsigned long long total_by_node=-1;
 
@@ -291,7 +291,7 @@ typedef struct _numa_node{
 } numa_node;
 //allocation is done in reverse order (hopefully is correct per node)
 
-#include "bits.h"
+#include "lib/bits.c"
   
 ///////////////////////////////////////////////////////////////////////////////
 // policies
@@ -304,7 +304,8 @@ int partitionedcpu_globalshm ( numa_node * list)
 
   //do the partition per node
   
-  long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  //long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  long long reserved_cap = (0x1 << 20);   //use 1MB reservation at the beginning
 
 // 512 MB
 #define BEN_ALIGNMENT 0x20000000 
@@ -316,6 +317,9 @@ int partitionedcpu_globalshm ( numa_node * list)
   //  better idea just allocate from 0 to.. ?!?!
   // algorithm is: if over 16MB 
   int i, l;
+  
+  	printf("##### %s #####\n", __func__);
+  
   for (i=0 ; i  < (maxconfigurednode +1) ; i++) {
      int cpu_num = list[i].cpus;
      long long size = list[i].size; //which size is it? total or avail?
@@ -460,7 +464,8 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 #endif
     
   //do the partition without caring about nodes
-  long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  //long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+  long long reserved_cap = (0x1 << 20);   //use 1MB reservation at the beginning
   int cpu_num = (numa_configured_cpus() +1);
 //  int size = maxpresentmem;
  unsigned long long  size = total_by_node;
@@ -468,6 +473,8 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
   // we do not care about nodes here
   memres * smemres = amemres;
   long long start = smemres->start;
+  
+  printf("##### %s #####\n", __func__);
       
       //contains reserved_cap?
       while ( smemres->start < reserved_cap ) {
@@ -608,6 +615,7 @@ int clusteredcpu_on_nodes ( numa_node * list)
 #ifdef BEN_ALIGNMENT
 	printf ("CLUSTERED Ben ALIGNMENT memmap=x@ALIGNED buond %lld\n", (long long) BEN_ALIGNMENT);
 #endif
+	printf("##### %s #####\n", __func__);
 
 	// algorithm is: if over 16MB
 	int i, id_base =0;
@@ -772,6 +780,7 @@ int main(int argc, char* argv[])
   
   return 0;
 }
+
 
 
 

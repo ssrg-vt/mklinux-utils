@@ -10,7 +10,7 @@ void clearcpu_bitmask( cpu_bitmask_t * ptr, int cpu_num);
 void print_bitmask( cpu_bitmask_t * ptr);
 
 // must be in string.h
-static inline int hex_to_bin(char ch)
+/*static inline int hex_to_bin(char ch)
 {
         if ((ch >= '0') && (ch <= '9'))
                 return ch - '0';
@@ -19,3 +19,4 @@ static inline int hex_to_bin(char ch)
                 return ch - 'a' + 10;
         return -1;
 }
+*/
