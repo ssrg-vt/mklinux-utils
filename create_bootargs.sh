@@ -13,7 +13,7 @@ ARG_IRQ="acpi_irq_nobalance no_ipi_broadcast lapic_timer=$LOG_LAPICTIMER"
 _ARG_PCI=`./create_lspci.sh`
 ARG_PCI="pci_dev_flags=$_ARG_PCI"
 
-ARG_MISC="mklinux debug"
+ARG_MISC="mklinux debug memmap=512k\$64k"
 
 isndigit ()
 {
