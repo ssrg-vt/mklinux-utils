@@ -274,4 +274,9 @@ c       vectorizable.
 	printf("Gaussian pairs: %f", timer_read(2));
 	printf("Random numbers: %f", timer_read(3));
     }
+#ifndef POSIX
+#ifndef NOBOMP
+    bomp_custom_exit();
+#endif
+#endif
 }

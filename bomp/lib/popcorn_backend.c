@@ -111,11 +111,9 @@ void backend_exit (void)
 {
 	// TODO liberate the memory allocated --- qui o nel previous context (each on the specific context!)
 
-
-
 //TODO I do not know where to put this stuff --------------------------------------------------------------
 //we have to decide about the memory stuff ...
-  int _ret;
+/*  int _ret;
   FILE * fp = fopen("malloc.info", "w");
   if (fp) {
     _ret = malloc_info( 0, fp);
@@ -124,8 +122,7 @@ void backend_exit (void)
   }
   else
     perror ("failed to open file\n");
-
-
+*/
 
   cthread_restore(saved_selector);
   printf("%s: [main %ld] exit_call\n", __func__, getpid());
@@ -135,6 +132,8 @@ void backend_create_time(int cores)
 {
     /* nop */
 }
+
+//NOTE --- the following two are together
 
 void backend_thread_exit(void)
 {

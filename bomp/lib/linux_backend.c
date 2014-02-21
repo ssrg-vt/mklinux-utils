@@ -75,6 +75,11 @@ void backend_init(void)
     }
 }
 
+void backend_exit(void)
+{
+	/* nop */
+}
+
 void backend_create_time(int cores)
 {
     /* nop */
