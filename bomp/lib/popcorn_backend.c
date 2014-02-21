@@ -48,9 +48,9 @@ void backend_set_numa(unsigned id)
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
 {
 	cthread_t tid;
-    int r = cthread_create(&tid, (void*)core_id, cfunc, arg);
+    int r = cthread_create(&tid, (void*)((long)core_id), cfunc, arg);
     if (r == -1) {
-        printf("%s: [main %ld] cthread_create %d FAILED\n", __func__, getpid(), r);
+        printf("%s: [main %ld] cthread_create %d FAILED\n", __func__, (long)getpid(), r);
         exit (1234);
     }
 }
@@ -92,7 +92,7 @@ static int init_calls=0;
 void backend_init(void)
 {
   // check if the function was called before ----------------------------------
-  printf("%s: [main %ld] init_call %d\n", __func__, getpid(), ++init_calls);
+  printf("%s: [main %ld] init_call %d\n", __func__, (long) getpid(), ++init_calls);
   if (init_calls > 1)
     exit(1234);
 
@@ -125,7 +125,7 @@ void backend_exit (void)
 */
 
   cthread_restore(saved_selector);
-  printf("%s: [main %ld] exit_call\n", __func__, getpid());
+  printf("%s: [main %ld] exit_call\n", __func__, (long)getpid());
 }
 
 void backend_create_time(int cores)

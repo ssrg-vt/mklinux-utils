@@ -10,6 +10,26 @@
  * Copyright Antonio Barbalace, SSRG, VT, 2013
  */
 
+/* Configuration macros */
+// value copied from is.c
+//NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread!
+#define STACK_SIZE (8 * 1024 * 1024)
+#define GLIBC_STYLE 1
+//#define SMALL_TLS 
+#undef SMALL_TLS
+
+/* Debugging macros */
+//#define DEBUG_MALLOC_BACKEND
+#undef DEBUG_MALLOC_BACKEND
+//#define DUMP_CUR_TCB
+#undef DUMP_CUR_TCB
+//#define DUMP_CUR_DTV
+#undef DUMP_CUR_DTV
+//#define DUMP_BACKEND
+#undef DUMP_BACKEND
+//#define DUMP_TLS_TCB
+#undef DUMP_TLS_TCB
+
 /* Thread identifiers.  The structure of the attribute type is not
    exposed on purpose.  */
 typedef unsigned long int cthread_t;

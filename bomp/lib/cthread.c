@@ -39,14 +39,6 @@
   #error "syscall exit not defined"
 #endif
 
-
-
-// value copied from is.c
-//NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread!
-#define STACK_SIZE (8 * 1024 * 1024)
-
-//#define DEBUG_MALLOC_BACKEND
-#undef DEBUG_MALLOC_BACKEND
 #ifdef DEBUG_MALLOC_BACKEND
      /* Prototypes for __malloc_hook, __free_hook */
      #include <malloc.h>
@@ -136,12 +128,7 @@ static inline unsigned long __set_fs (void * address)
 #undef offsetof
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
-
-
-
-
-
-
+#ifdef ANTONIOB
 static size_t __kernel_cpumask_size = 0;
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
@@ -183,6 +170,12 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
 
   return result;
 }
+#else
+int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
+{
+    return sched_setaffinity(pid,cpusetsize,cpuset);
+}
+#endif
 
 #define PTHREAD_KEYS_MAX 8
 
@@ -306,9 +299,6 @@ struct backend {
 
 cthread_t cthread_self (void )
 {	return (cthread_t)THREAD_SELF; }
-
-
-
 
 
 /* Macros to load from and store into segment registers.  */
@@ -500,7 +490,11 @@ int cthread_key_create (cthread_key_t *key, void (*destr) (void *))
 
 /* Size of the static TLS block.  Giving this initialized value
    preallocates some surplus bytes in the static TLS area.  */
-static size_t _dl_tls_static_size = 2048;
+#ifdef SMALL_TLS
+size_t _dl_tls_static_size = 1024;
+#else
+size_t _dl_tls_static_size = 2048;
+#endif
 //extern size_t _dl_tls_static_size; // NOTE in case of static compilation with glibc this is a global var, i.e. this is a smart way to get this informations in order for cthread to work correctly
 
 # define TLS_INIT_TCB_ALIGN __alignof__ (struct backend)
@@ -542,7 +536,6 @@ static void* allocate_dtv (void *result)
 
 extern void * _dl_allocate_tls_init (void *result); // accessible trought the ld library loader
 
-#define DUMP_CUR_TCB
 #ifdef DUMP_CUR_TCB
 void dump_current_tcb()
 {
@@ -571,7 +564,6 @@ void dump_current_tcb()
 #define dump_current_tcb()
 #endif
 
-#define DUMP_CUR_DTV
 #ifdef DUMP_CUR_DTV
 void dump_current_dtv()
 {
@@ -593,8 +585,6 @@ void dump_current_dtv()
 #else
 #define dump_current_dtv()
 #endif
-
-
 
 //static unsigned long saved_selector = -1; // now in popcorn_backend.c
 static unsigned long selector = -1;
@@ -768,7 +758,6 @@ unsigned long cthread_initialize ()
 			      : "=q" (__value) : "0" (0), "i" (0), "r" (i));
 		((unsigned char *)backendptr)[i] = __value;
 	    }
-	#define DUMP_BACKEND
 	#ifdef DUMP_BACKEND
 	//printf("\n");
 	printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
@@ -856,19 +845,16 @@ void cthread_restore (unsigned long selector)
 
 }
 
-
-
-
 //TODO MUST BE INTEGRATEEEE!!!
 // the following must be integrated in struct backend
 typedef struct _backend_args {
   void * user;
-  int (* cfunc)(void * args);
+  void * (* cfunc)(void * args);
 } backend_args;
 
 int backend_start_func (void * args)
 { int _ret;
-  int ret =
+  int ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 
 
@@ -898,9 +884,8 @@ int backend_start_func (void * args)
 //int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg);
 int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
 {
-	int core_id = (int) attr;
+	int core_id = (int)((long) attr);
   int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
-	#define GLIBC_STYLE 1
 	#if GLIBC_STYLE
 	  int clone_flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGNAL
 			     | CLONE_SETTLS | CLONE_PARENT_SETTID
@@ -918,7 +903,6 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 
 	#endif
 	    pid_t ptid, ctid;
-
 
 // TODO liberate the memory before creating new threads
 // TODO --- we can maintain a list ---

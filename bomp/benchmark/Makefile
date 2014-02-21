@@ -1,4 +1,5 @@
-# Copyright (c) 2013, 2014, VT.
+# Copyright (c) 2013, 2014, SSRG, VT.
+# Author: Antonio Barbalace
 #
 # Copyright (c) 2007, 2008, 2009, ETH Zurich.
 # All rights reserved.
@@ -10,15 +11,15 @@
 DBGFLAGS=-g
 OPTFLAGS=-O2
 
-all: all-gomp all-bomp all-pomp
+all: all-gomp all-bomp all-pomp all-scalability
 
 all-gomp: cg-gomp ft-gomp is-gomp ep-gomp
 all-bomp: cg-bomp ft-bomp is-bomp ep-bomp
 all-pomp: cg-pomp ft-pomp is-pomp ep-pomp
-all-scalability: scalability-gomp scalability-bomp scalability-gomp
+all-scalability: scalability-gomp scalability-bomp scalability-pomp
 
 clean:
-	rm -f cg-gomp cg-bomp ft-gomp ft-bomp is-gomp is-bomp
+	rm -f *.o cg-gomp cg-bomp cg-pomp ft-gomp ft-bomp ft-pomp is-gomp is-bomp is-pomp ep-gomp ep-bomp ep-pomp scalability-gomp scalability-bomp scalability-pomp
 
 
 cg-gomp:
@@ -34,40 +35,40 @@ is-gomp:
 	gcc -o is-gomp is.c c_print_results.c c_timers.c wtime.c -DPOSIX -lm -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 
 cg-bomp:
-	gcc -c wtime.c -DPOSIX -g -O2
-	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTFLAGS) $(DBGFLAGS)
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 	
 ep-bomp:
-	gcc -c wtime.c -DPOSIX -g -O2
-	gcc -o ep-bomp ep.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTFLAGS) $(DBGFLAGS)
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o ep-bomp ep.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 
 ft-bomp:
-	gcc -c wtime.c -DPOSIX -g -O2
-	gcc -o ft-bomp ft.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTFLAGS) $(DBGFLAGS)
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o ft-bomp ft.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 
 is-bomp:
-	gcc -o wtime.o -c wtime.c -DPOSIX -g -O2
-	gcc -o is-bomp is.c c_print_results.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTFLAGS) $(DBGFLAGS)
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o is-bomp is.c c_print_results.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 
 cg-pomp:
-	gcc -c wtime.c -DPOSIX -g -O2
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
 	gcc -c cg.c c_print_results.c c_randdp.c c_timers.c -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 	gcc -o cg-pomp cg.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libpomp.a -lm $(DBGFLAGS)
 
 ep-pomp:
-	gcc -c wtime.c -DPOSIX -g -O2
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
 	gcc -c ep.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o ep-bomp ep.o wtime.o c_print_results.o c_timers.c ../lib/libpomp.a -lm $(DBGFLAGS)
+	gcc -o ep-pomp ep.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libpomp.a -lm $(DBGFLAGS)
 
-ft-pomp
-	gcc -c wtime.c -DPOSIX -g -O2
+ft-pomp:
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
 	gcc -c ft.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o ft-bomp ft.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libbomp.a -lm $(DBGFLAGS)
+	gcc -o ft-pomp ft.o wtime.o c_print_results.o c_randdp.o c_timers.o ../lib/libpomp.a -lm $(DBGFLAGS)
 
-is-bomp:
-	gcc -o wtime.o -c wtime.c -DPOSIX -g -O2
+is-pomp:
+	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
 	gcc -c is.c c_print_results.c c_timers.c wtime.o -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o is-bomp is.o wtime.o c_print_results.o c_timers.c ../lib/libbomp.a -lm $(DBGFLAGS)
+	gcc -o is-pomp is.o wtime.o c_print_results.o c_timers.o ../lib/libpomp.a -lm $(DBGFLAGS)
 
 
 scalability-gomp: clean
