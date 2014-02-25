@@ -15,8 +15,16 @@
 //NOTE that pthread glibc NPTL in gigi returns 8MB of stack per thread!
 #define STACK_SIZE (8 * 1024 * 1024)
 #define GLIBC_STYLE 1
+#define __ASSUME_NO_CLONE_DETACHED 1
+//#define __ASSUME_NO_CLONE_DETACHED 0
+#define REDEFINE_SETAFFINITY
+//#undef REDEFINE_SETAFFINITY
+#define USE_SYSCALL_SETAFFINITY
+//#undef USE_SYSCALL_SETAFFINITY
 //#define SMALL_TLS 
 #undef SMALL_TLS
+//#define USE_MAP_STACK
+#undef USE_MAP_STACK
 
 /* Debugging macros */
 //#define DEBUG_MALLOC_BACKEND

@@ -8,13 +8,16 @@
 ##########################################################################
 
 CFLAGS = -DPOSIX -g -m64
+OTHERS = -O2
 
 all: libbomp.a libpomp.a
 
-libbomp.a: linux_backend.o omp.o parallel.o processing.o
+libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
 	$(AR) -q $@ $^
 
-libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o
+#cthread.o:
+#	$(CC) $(CFLAGS) -c cthread.c $(OTHERS)
+libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 	$(AR) -q $@ $^
 
 clean:

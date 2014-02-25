@@ -78,6 +78,7 @@ void backend_init(void)
 void backend_exit(void)
 {
 	/* nop */
+	dump_sched_self();
 }
 
 void backend_create_time(int cores)

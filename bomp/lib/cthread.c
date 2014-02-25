@@ -17,6 +17,7 @@
 
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/mman.h>
 #include <asm/ldt.h>
 
 #include "cthread.h"
@@ -103,7 +104,7 @@ static inline unsigned long clone_exit (int ret)
 #define ARCH_SET_FS 0x1002
 #define ARCH_GET_FS 0x1003
 
-
+/*
 #define __GET_FS(address) \
 do { \
   syscall(__NR_arch_prctl, ARCH_GET_FS, &(address)); \
@@ -111,6 +112,10 @@ do { \
 	 TLS_GET_FS(), address, \
 	 THREAD_SELF, __errno_location()); \
 } while(0);
+*/
+
+#define __GET_FS(address) \
+  syscall(__NR_arch_prctl, ARCH_GET_FS, &(address)); \
 
 static inline unsigned long __set_fs (void * address)
 {
@@ -128,7 +133,7 @@ static inline unsigned long __set_fs (void * address)
 #undef offsetof
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
-#ifdef ANTONIOB
+#ifdef REDEFINE_SETAFFINITY
 static size_t __kernel_cpumask_size = 0;
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
@@ -143,7 +148,7 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
       psize = 2*psize;
       p = (void*) realloc (p, psize);
       memset(p, 0xFF, psize);
-      printf("try %d %d\n", psize, res);
+//      printf("try %d %d\n", psize, res);
     }
 
       __kernel_cpumask_size = psize;
@@ -161,13 +166,17 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
 	return 4321;
       }
 
-//  int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
+if (cpusetsize > __kernel_cpumask_size)
+  cpusetsize = __kernel_cpumask_size;
+#ifdef USE_SYSCALL_SETAFFINITY
+  int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
+#else  
   unsigned long result = 0;
   __asm__ __volatile__ ("syscall\n"
 			: "=a" (result)
 			: "a" (__NR_sched_setaffinity), "D" (pid), "S" (cpusetsize), "d" (cpuset)
 			: "memory");
-
+#endif
   return result;
 }
 #else
@@ -741,11 +750,12 @@ unsigned long cthread_initialize ()
 
 	  struct backend * backendptr = (void *) (((char*)__backendptr) + tcb_offset);
 
+#ifdef DUMP_BACKEND	  
 	  printf("sizeof(struct backend) %ld(0x%lx) ",
 		 sizeof(struct backend), sizeof(struct backend));
 	  printf("__backend %p backend %p (last addr %p)\n",
 		 __backendptr, backendptr, ((char*) backendptr) + sizeof (struct backend));
-
+#endif
 	// get the previous FS --------------------------------------------------------
 	  __GET_FS(saved_selector);
 
@@ -777,7 +787,9 @@ unsigned long cthread_initialize ()
 	      printf("allocation of dtv failed for cpu MAIN, exit\n");
 	      exit(0);
 	    }
+#ifdef DUMP_BACKEND	    
 	    printf("retptr %p (backendptr)\n", retptr);
+#endif	    
 
 	// INSTALL DTV ----------------------------------------------------------------
 	    if (_dl_allocate_tls_init (backendptr) == NULL) {
@@ -849,16 +861,32 @@ void cthread_restore (unsigned long selector)
 // the following must be integrated in struct backend
 typedef struct _backend_args {
   void * user;
+  void * stackblock;
   void * (* cfunc)(void * args);
 } backend_args;
 
 int backend_start_func (void * args)
-{ int _ret;
-  int ret = (long)
+{
+  int _ret, ret;
+  
+  //__ctype_init (); // from glibc /* Initialize pointers to locale data.  */
+  
+  ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 
+  //__call_tls_dtors (); // from glibc
+  //__nptl_deallocate_tsd (); // from glibc   /* Run the destructor for the thread-local data.  */
 
-
+/* THE FOLLOWING HAS BEEN COMMENTED BECAUSE SOURCE OF OVERHEAD
+#define CURRENT_STACK_FRAME \
+ ({ register char *frame __asm__("rsp"); frame; })
+  char * sp = CURRENT_STACK_FRAME;
+  size_t freesize = (sp - (char*) ((backend_args *)args)->stackblock) & ~(4096 -1);
+#define PTHREAD_STACK_MIN 16384
+  if ( freesize > PTHREAD_STACK_MIN )
+    madvise (((backend_args *)args)->stackblock, (freesize - PTHREAD_STACK_MIN), MADV_DONTNEED);
+*/  
+    
 /*  printf("%s: barg %p carg %p cfunc %p\n",
     __func__,  args, ((backend_args *)args)->cfunc,((backend_args *) args)->user);
     */ // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
@@ -868,7 +896,6 @@ int backend_start_func (void * args)
 /*   dump_current_tcb();
   dump_current_dtv();
  */
-
 
   _ret = clone_exit(ret);
 //  exit(ret);
@@ -892,6 +919,10 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 			     //| CLONE_PARENT_SETTID
 			     | CLONE_CHILD_CLEARTID | CLONE_SYSVSEM
 	#if __ASSUME_NO_CLONE_DETACHED == 0
+/*For a while there was CLONE_DETACHED (introduced in 2.5.32): parent wants no child-exit  signal.   In
+       2.6.2  the need to give this together with CLONE_THREAD disappeared.  This flag is still defined, but
+       has no effect.
+*/
 			     | CLONE_DETACHED
 	#endif
 			     | 0);
@@ -907,13 +938,28 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 // TODO liberate the memory before creating new threads
 // TODO --- we can maintain a list ---
 // TODO
-
-	    void * stack = malloc(STACK_SIZE);
-	    if (!stack) {
+	    
+#ifdef USE_MAP_STACK
+	    //copied from glibc/nptl/allocatestack.c
+	    void * stack = mmap (0, STACK_SIZE, (PROT_READ | PROT_WRITE), MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+	    
+	    if ( (stack == MAP_FAILED) ) {
+	      perror("mmap stack allocation error");
+	      exit(0);
+	    }
+#else
+	    //void * stack = malloc(STACK_SIZE);
+	    void * stack = calloc(STACK_SIZE, 1);
+    	    if (!stack) {
 		printf("stack allocation error");
 		exit (0);
 	    }
-	    memset(stack, 0, STACK_SIZE);
+//	    memset(stack, 0, STACK_SIZE);
+#endif	    
+
+#ifdef USE_MAP_STACK
+	    mprotect (stack, 4096, PROT_NONE);
+#endif	    
 
 	    int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
 	    int tcb_offset = memsz + roundup(_dl_tls_static_size, 1);
@@ -968,6 +1014,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		exit (0);
 	    }
 	    bkargs->user = arg;
+	    bkargs->stackblock = stack;
 	    bkargs->cfunc = cfunc;
 	    /* NOTE: tls value is struct pthread *
 	     * in glibc/nptl/sysdeps/pthread/createthread.c
@@ -981,7 +1028,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	    if (r == -1) {
 	        //printf("clone failed\n");
 		perror("clone failed");
-//		exit (0);
+		exit (0);
 	    }
 /*	    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
 		    __func__, r, core_id,

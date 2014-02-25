@@ -102,7 +102,7 @@ void backend_init(void)
       printf("%s: cthread_key_create %d FAILED\n", __func__, r);
       exit(1234);
   }
-  printf("%s: cthread_key_create %d\n", __func__, r);
+//  printf("%s: cthread_key_create %d\n", __func__, r);
 
   saved_selector = cthread_initialize();
 }
@@ -111,7 +111,7 @@ void backend_exit (void)
 {
 	// TODO liberate the memory allocated --- qui o nel previous context (each on the specific context!)
 
-//TODO I do not know where to put this stuff --------------------------------------------------------------
+// PUT this in cthread as a debugging aid
 //we have to decide about the memory stuff ...
 /*  int _ret;
   FILE * fp = fopen("malloc.info", "w");
@@ -126,6 +126,8 @@ void backend_exit (void)
 
   cthread_restore(saved_selector);
   printf("%s: [main %ld] exit_call\n", __func__, (long)getpid());
+  
+  dump_sched_self ();
 }
 
 void backend_create_time(int cores)

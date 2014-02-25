@@ -13,10 +13,10 @@
  */
 
 #include <stdio.h>
-#include <omp.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <omp.h>
 
 //#ifdef POSIX
 static inline uint64_t rdtsc(void)
@@ -27,28 +27,48 @@ static inline uint64_t rdtsc(void)
 }
 //#endif
 
-#define N 10000000
+//#define LARGE
+#undef LARGE
+#ifndef LARGE
+# define N 10000000
+#else
+# define N 100000000
+#endif
+static int a[N];
 
 int main(int argc, char *argv[])
 {
         uint64_t begin, end;
-        int i;
-        static int a[N];
+        int cpus, sum =0;
+#ifndef LARGE	
+	long int i;
+#else
+	int i;
+#endif
 
 #ifndef POSIX
 	bomp_custom_init();
 #endif
         assert(argc == 2);
-        omp_set_num_threads(atoi(argv[1]));
+        omp_set_num_threads( cpus=atoi(argv[1]) );
 
-        for (i=0;i<N;i++) a[i]= 2*i;
+        for (i=0; i<N; i++) {
+	  a[i] = i;
+	}
 
         begin = rdtsc();
 
-#pragma omp parallel for
-        for (i=0;i<N;i++) a[i]= 2*i;
+#pragma omp parallel for reduction( + : sum)
+        for (i=0; i<N; i++) {
+	  sum = sum + a[i];
+	}
 
-        end = rdtsc();
+	end = rdtsc();
 
-	printf("Value of sum is %d, time taken %lu\n", 0, end - begin);
+	printf("Value of sum is %d\n", sum);
+	printf("Computetime %d %lu\n", cpus, (unsigned long)(end - begin));
+	
+#ifndef POSIX
+	bomp_custom_exit();
+#endif
 }

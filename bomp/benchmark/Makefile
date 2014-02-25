@@ -14,13 +14,16 @@ OPTFLAGS=-O2
 all: all-gomp all-bomp all-pomp all-scalability
 
 all-gomp: cg-gomp ft-gomp is-gomp ep-gomp
+	
 all-bomp: cg-bomp ft-bomp is-bomp ep-bomp
+	
 all-pomp: cg-pomp ft-pomp is-pomp ep-pomp
+	
 all-scalability: scalability-gomp scalability-bomp scalability-pomp
+	
 
 clean:
 	rm -f *.o cg-gomp cg-bomp cg-pomp ft-gomp ft-bomp ft-pomp is-gomp is-bomp is-pomp ep-gomp ep-bomp ep-pomp scalability-gomp scalability-bomp scalability-pomp
-
 
 cg-gomp:
 	gcc -o cg-gomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.c -DPOSIX -lm -fopenmp $(OPTFLAGS) $(DBGFLAGS)
@@ -34,7 +37,7 @@ ft-gomp:
 is-gomp:
 	gcc -o is-gomp is.c c_print_results.c c_timers.c wtime.c -DPOSIX -lm -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 
-cg-bomp:
+cg-bomp: 
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
 	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 	
@@ -71,13 +74,13 @@ is-pomp:
 	gcc -o is-pomp is.o wtime.o c_print_results.o c_timers.o ../lib/libpomp.a -lm $(DBGFLAGS)
 
 
-scalability-gomp: clean
+scalability-gomp:
 	gcc -o scalability-gomp scalability.c -DPOSIX -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 
-scalability-bomp: clean
+scalability-bomp:
 	gcc -o scalability-bomp scalability.c -DBOMP -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
 	
-scalability-pomp: clean
+scalability-pomp:
 	gcc -c scalability.c -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 	gcc -o scalability-pomp scalability.o ../lib/libpomp.a $(DBGFLAGS)
 	

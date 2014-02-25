@@ -1,8 +1,10 @@
-/**
- * \file
- * \brief Lock scalability benchmark.
- */
 
+/*
+ * Copyright (c) 2013, 2014, SSRG VT
+ * Author: Antonio Barbalace
+ * 
+ * Rewriting to run tests on Linux, Popcorn and Barrelfish.
+ */
 /*
  * Copyright (c) 2007, 2008, 2009, ETH Zurich.
  * All rights reserved.
@@ -13,8 +15,8 @@
  */
 
 #include <stdio.h>
-#include <omp.h>
 #include <stdlib.h>
+#include <omp.h>
 
 // Use spinlocks if defined, mutexes otherwise
 #define SPINLOCKS
@@ -52,12 +54,17 @@ static inline uint64_t rdtsc(void)
 }
 #endif
 
+#define N 1000000
+
 int main(int argc, char *argv[])
 {
         int i=0;
 
+#ifndef POSIX	
 	bomp_custom_init();
-        omp_set_num_threads(4);
+#endif
+	assert(argc == 2);
+        omp_set_num_threads(atoi(argv[1]));
 
 #ifndef POSIX
 #ifndef SPINLOCKS
@@ -75,10 +82,10 @@ int main(int argc, char *argv[])
 
         uint64_t begin = rdtsc();
 
-        #pragma omp parallel 
+#pragma omp parallel 
         {
 #pragma omp for private(i)
-		   for(i=0;i<1000000;i++)
+		   for(i=0;i<N;i++)
 		   {
 #ifdef SPINLOCKS
                        acquire_spinlock(&lock);
@@ -91,7 +98,10 @@ int main(int argc, char *argv[])
 	}
 
         uint64_t end = rdtsc();
-
         printf("took %lu\n", end - begin);
+	
+#ifndef POSIX
+	bomp_custom_exit();
+#endif	
 }
 
