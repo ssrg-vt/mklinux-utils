@@ -1,4 +1,5 @@
 // Copyright (c) Antonio Barbalace, SSRG, VT 2014
+// NOTE most of these info can be found using getrusage(..) API
 
 #include <sys/types.h>
 #include <sys/stat.h>

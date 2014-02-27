@@ -23,8 +23,8 @@
 //#undef USE_SYSCALL_SETAFFINITY
 //#define SMALL_TLS 
 #undef SMALL_TLS
-//#define USE_MAP_STACK
-#undef USE_MAP_STACK
+#define USE_MAP_STACK
+//#undef USE_MAP_STACK
 
 /* Debugging macros */
 //#define DEBUG_MALLOC_BACKEND

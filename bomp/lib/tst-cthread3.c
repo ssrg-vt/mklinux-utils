@@ -1,3 +1,4 @@
+ 
 /*
  * cthread tests program
  *
@@ -22,6 +23,9 @@
  #define CHILD_SLEEP 15
 #endif
 
+#define SLEEP_FACT 1000000
+#define _sleep(a) { int i; long aa=a; long bb=-3; for (i=0; i<(a*SLEEP_FACT); i++) aa += (bb + a);}
+
 void * fun(void * arg)
 {
   int id = (int)arg;
@@ -32,9 +36,10 @@ void * fun(void * arg)
 
   printf("in fun\n"); 
   cthread_setaffinity_np(0, sizeof(cpu_set_t), &cpu_mask)  ; // NOTE first argument is not pthread or cthread
-  system("echo \"cthread_test2\" > /dev/kmsg\n");
+  system("echo \"cthread_test3: setaffinity\" > /dev/kmsg\n");
 
-  sleep(CHILD_SLEEP);
+  _sleep(CHILD_SLEEP);
+  system("echo \"cthread_test3: out fun\" > /dev/kmsg\n");
 //  printf("out fun\n"); //printf requires futex
   return 0;
 }
@@ -61,7 +66,7 @@ printf("cthread_create returned %d\n", res);
 //    return 1;
 //  }
   printf("after pthread\n");
-  sleep(PARENT_SLEEP);
+  _sleep(PARENT_SLEEP);
   printf("out main\n");
 
   printf("pre pthread\n");
@@ -72,7 +77,7 @@ printf("cthread_create returned %d\n", res);
 //    return 1;
 //  }
   printf("after pthread\n");
-  sleep(PARENT_SLEEP);
+  _sleep(PARENT_SLEEP);
   printf("out main\n");
 
   cthread_restore(saved_context);

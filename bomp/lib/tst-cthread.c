@@ -1,3 +1,4 @@
+ 
 /*
  * cthread tests program
  *
@@ -34,9 +35,6 @@ int main (int argc, char * argv[])
   cthread_t pt;
   int res;
 
-  unsigned long saved_context = cthread_initialize();
-
-  printf("pre pthread\n");
   res = cthread_create(&pt, 0, fun, 0);
 printf("cthread_create returned %d\n", res);
 //  if (res != 0) {
@@ -57,8 +55,6 @@ printf("cthread_create returned %d\n", res);
   printf("after pthread\n");
   sleep(PARENT_SLEEP);
   printf("out main\n");
-
-  cthread_restore(saved_context);
 
   return 0;
 }

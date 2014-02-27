@@ -153,6 +153,7 @@ int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuse
 
       __kernel_cpumask_size = psize;
 //      printf("__kernel_cpumask_size is %d\n", psize);
+      free(p);
   }
 
   /* We now know the size of the kernel cpumask_t.
@@ -523,7 +524,7 @@ static void* allocate_dtv (void *result)
      of the dtv.  */
   dtv_length = dl_tls_max_dtv_idx + DTV_SURPLUS;
   dtv = calloc (dtv_length + 2, sizeof (dtv_t)); // Antonio: must use calloc to work with deallocate_dtv
-  memset (dtv, 0, ((dtv_length +2)*sizeof(dtv_t))); // added by Antonio
+//  memset (dtv, 0, ((dtv_length +2)*sizeof(dtv_t))); // added by Antonio --- calloc already provides zeroed memory
   if (dtv != NULL)
     {
       /* This is the initial length of the dtv.  */
@@ -740,13 +741,13 @@ unsigned long cthread_initialize ()
 	//from GLIBC /gnu/glibc/csu/libc-tls.c __libc_setup_tls
 	  int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
 	  int tcb_offset= memsz + roundup(_dl_tls_static_size, 1);
-	  struct backend * __backendptr =
-	    malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN);
+	  int _backend_size = tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN;
+	  struct backend * __backendptr = calloc(_backend_size, 1);
 	  if (!__backendptr) {
 	      printf("%s: TLS allocation error\n", __func__);
 	      exit (0);
 	  }
-	  memset(__backendptr, 0, sizeof(struct backend));
+	  //memset(__backendptr, 0, sizeof(struct backend)); //removed after using calloc
 
 	  struct backend * backendptr = (void *) (((char*)__backendptr) + tcb_offset);
 
@@ -963,12 +964,13 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 
 	    int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
 	    int tcb_offset = memsz + roundup(_dl_tls_static_size, 1);
-	    struct backend * __backendptr = malloc( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN) ;
+	    int _backend_size = tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN;	    
+	    struct backend * __backendptr = calloc(_backend_size, 1) ;
 	    if (!__backendptr) {
 		printf("%s: TLS allocation error\n", __func__);
 		exit (0);
 	    }
-	    memset(__backendptr, 0, ( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN));
+	    //memset(__backendptr, 0, ( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN)); //removed after using calloc instead of malloc
 	#ifdef DEBUG_MALLOC_BACKEND
 	    printf("malloc(tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld) @ %p\n",
 		  tcb_offset, sizeof(struct backend), TLS_INIT_TCB_ALIGN,
@@ -1008,7 +1010,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	      exit(0);
 	    }
 
-	    backend_args * bkargs = malloc(sizeof(backend_args));
+	    backend_args * bkargs = calloc(sizeof(backend_args), 1);
 	    if (!bkargs) {
 		printf("args allocation error\n");
 		exit (0);
@@ -1030,14 +1032,14 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		perror("clone failed");
 		exit (0);
 	    }
-/*	    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
+#ifdef DUMP_BACKEND
+	    printf ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
 		    __func__, r, core_id,
 		    (stack+STACK_SIZE), backendptr,
 		    bkargs, arg, backend_start_func, cfunc);
-*/
+#endif
 
 // TODO	    DO I HAVE TO SAVE _backend_args here?!
-
 
 return r;
 

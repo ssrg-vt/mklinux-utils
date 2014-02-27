@@ -726,9 +726,10 @@ int main(int argc, char** argv)
         exit(-1);
     }
     
-    printf("key_array [%p-%p]\n", key_array, key_array+SIZE_OF_BUFFERS);
+    /*printf("key_array [%p-%p]\n", key_array, key_array+SIZE_OF_BUFFERS);
     printf("key_buff1 [%p-%p]\n", key_buff1, key_buff1+SIZE_OF_BUFFERS);    
     printf("key_buff2 [%p-%p]\n", key_buff2, key_buff2+SIZE_OF_BUFFERS);
+    */
 #ifdef USE_BUCKETS
     printf("bucket_size [%p-%p]\n", bucket_size, bucket_size+NUM_BUCKETS);
     printf("bucket_ptrs [%p-%p]\n", bucket_ptrs, bucket_ptrs+NUM_BUCKETS);

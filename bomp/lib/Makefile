@@ -20,5 +20,12 @@ libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
 libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 	$(AR) -q $@ $^
 
+tests: libpomp.a
+	$(CC) $(CFLAGS) -o test-cthread tst-cthread.c $^
+	$(CC) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
+	$(CC) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^
+	$(CC) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
+	$(CC) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
+
 clean:
-	rm -f *.o libbomp.a libpomp.a
+	rm -f *.o libbomp.a libpomp.a test-*
