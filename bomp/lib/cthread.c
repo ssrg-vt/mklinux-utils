@@ -1,6 +1,7 @@
 /*
  * cthread
  * clone based threading library (without futex)
+ * it implements the model TLS_TCB_AT_TP ONLY
  *
  * Copyright Antonio Barbalace, SSRG, VT, 2013
  */
@@ -18,7 +19,10 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <asm/ldt.h>
+//#include <sys/types.h> //gettid
 
 #include "cthread.h"
 
@@ -31,7 +35,6 @@
   #error "syscall sched_getaffinity not defined"
 #endif
 
-
 #ifndef __NR_arch_prctl
   #error "syscall arch_prctl not defined"
 #endif
@@ -40,22 +43,29 @@
   #error "syscall exit not defined"
 #endif
 
+#ifndef __NR_gettid
+  #error "syscall gettid not defined"
+//  #define __NR_gettid   186
+#endif
+
+#define GET_TID ((unsigned long)syscall(__NR_gettid))
+
 #ifdef DEBUG_MALLOC_BACKEND
-     /* Prototypes for __malloc_hook, __free_hook */
-     #include <malloc.h>
+// the following code has been copied from a webpage 
+/* Prototypes for __malloc_hook, __free_hook */
+#include <malloc.h>
 
-     /* Prototypes for our hooks.  */
-     static void my_init_hook (void);
-     static void *my_malloc_hook (size_t, const void *);
-     //static void my_free_hook (void*, const void *);
+/* Prototypes for our hooks.  */
+static void my_init_hook (void);
+static void *my_malloc_hook (size_t, const void *);
+//static void my_free_hook (void*, const void *);
 
-     void* old_malloc_hook;
+void* old_malloc_hook;
 
-     /* Override initializing hook from the C library. */
-     void (*__malloc_initialize_hook) (void) = my_init_hook;
+/* Override initializing hook from the C library. */
+void (*__malloc_initialize_hook) (void) = my_init_hook;
 
-     static void
-     my_init_hook (void)
+static void my_init_hook (void)
      {
        old_malloc_hook = __malloc_hook;
        //old_free_hook = __free_hook;
@@ -63,11 +73,10 @@
        //__free_hook = my_free_hook;
      }
 
-     static void *
-     my_malloc_hook (size_t size, const void *caller)
+static void * my_malloc_hook (size_t size, const void *caller)
      {
        void *result;
-       unsigned long bp;
+//       unsigned long bp;
        /* Restore all old hooks */
        __malloc_hook = old_malloc_hook;
        //__free_hook = old_free_hook;
@@ -77,9 +86,11 @@
        old_malloc_hook = __malloc_hook;
        //old_free_hook = __free_hook;
        /* printf might call malloc, so protect it too. */
-       __asm__ __volatile__ ("movq %%rbp,%q0\n" : "=r" (bp));
+//       __asm__ __volatile__ ("movq %%rbp,%q0\n" : "=r" (bp));
 
-       printf ("malloc (%u) returns %p bp %lx\n", (unsigned int) size, result, bp);
+       printf ("%ld: malloc(%u) (%p-%p) \n",   // bp %lx\n",
+	        GET_TID, (unsigned int) size,
+	       result, result + size); //PREVIOUS VERSION bp);
        /* Restore our own hooks */
        __malloc_hook = my_malloc_hook;
        //__free_hook = my_free_hook;
@@ -134,7 +145,7 @@ static inline unsigned long __set_fs (void * address)
 #define offsetof(S,F) ((size_t) & (((S *) 0)->F))
 
 #ifdef REDEFINE_SETAFFINITY
-static size_t __kernel_cpumask_size = 0;
+static size_t __kernel_cpumask_size = 8;//it was 0
 int cthread_setaffinity_np (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
   if (__kernel_cpumask_size == 0 )
@@ -266,6 +277,12 @@ typedef struct
 //in struct pthread
 struct backend {
   tcbhead_t header; // header is the first field in any case
+  
+  /* Thread ID */
+  pid_t tid;
+  /* Process ID - thread group ID in kernel speak.  */
+  pid_t pid;
+  
   struct backend_key_data
   {
     /* Sequence number.  We use uintptr_t to not require padding on
@@ -282,6 +299,22 @@ struct backend {
 
   /* Flag which is set when specific data is set.  */
   char specific_used;
+  
+  /* True if the user provided the stack.  */
+//  bool user_stack;
+  
+    /* The result of the thread function.  */
+  void *result;
+
+  /* Start position of the code to be executed and the argument passed
+     to the function.  */
+  void *(*start_routine) (void *);
+  void *arg;
+
+  /* If nonzero pointer to area allocated for the stack and its
+     size.  */
+  void *stackblock;
+  size_t stackblock_size;
 };
 
 
@@ -501,9 +534,9 @@ int cthread_key_create (cthread_key_t *key, void (*destr) (void *))
 /* Size of the static TLS block.  Giving this initialized value
    preallocates some surplus bytes in the static TLS area.  */
 #ifdef SMALL_TLS
-size_t _dl_tls_static_size = 1024;
+static size_t _dl_tls_static_size = 1024;
 #else
-size_t _dl_tls_static_size = 2048;
+static size_t _dl_tls_static_size = 2048;// + 2400;
 #endif
 //extern size_t _dl_tls_static_size; // NOTE in case of static compilation with glibc this is a global var, i.e. this is a smart way to get this informations in order for cthread to work correctly
 
@@ -726,6 +759,16 @@ int cthread_setspecific (cthread_key_t key, const void *value)
   return 0;
 }
 
+extern const uint16_t ** __attribute__ ((const)) __ctype_b_loc (void);
+extern const int32_t ** __attribute__ ((const)) __ctype_toupper_loc (void);
+extern const int32_t ** __attribute__ ((const)) __ctype_tolower_loc (void);
+
+static const uint16_t * vctype_b = 0;
+static const int32_t * vctype_toupper = 0;
+static const int32_t * vctype_tolower = 0;
+
+extern __thread void * __resp;
+static const void * v__resp;
 
 /*
  * this routine switch from pthread to cthread
@@ -733,10 +776,14 @@ int cthread_setspecific (cthread_key_t key, const void *value)
 
 //TODO can fail?!
 //TODO do I really need the the backend pointer (no because is saved in TLS)
-unsigned long cthread_initialize ()
+unsigned long __cthread_initialize ()
 {
 	unsigned long saved_selector;
-
+	
+// in glibc/nptl-init.c:280 __pthread_initialize_minimal_internal() they are doing:
+//  struct pthread *pd = THREAD_SELF;
+// because this is for dynamically linked library we skipped the code in #ifndef SHARED i.e. static compiled
+	
 	// TLS_TCB ALLOCATION ---------------------------------------------------------
 	//from GLIBC /gnu/glibc/csu/libc-tls.c __libc_setup_tls
 	  int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
@@ -800,45 +847,167 @@ unsigned long cthread_initialize ()
 	  dump_current_tcb();
 	  dump_current_dtv();
 
-	// COPY previous TLS -----------------------------------------------------------
+	  const uint16_t ** pctype_b = __ctype_b_loc ();
+//	  const unsigned long offctype_b = (unsigned long)saved_selector - (unsigned long)pctype_b;
+	  const int32_t ** pctype_toupper = __ctype_toupper_loc ();
+//	  const unsigned long offctype_toupper = (unsigned long)saved_selector - (unsigned long)pctype_toupper;
+	  const int32_t ** pctype_tolower = __ctype_tolower_loc ();
+//	  const unsigned long offctype_tolower = (unsigned long)saved_selector - (unsigned long)pctype_tolower;    
+	    
+	  vctype_b = (pctype_b) ? *pctype_b : 0;
+	  vctype_toupper = (pctype_toupper) ? *pctype_toupper : 0;
+	  vctype_tolower = (pctype_tolower) ? *pctype_tolower : 0;	  
+
+	  v__resp = __resp;
+#ifdef DEBUG_TLS
+  printf("ctype_b %p{%p} ctype_toupper %p{%p} ctype_tolower %p{%p} ", 
+	pctype_b, *pctype_b,
+	pctype_toupper, *pctype_toupper, pctype_tolower, *pctype_tolower); 
+  printf("errno %p{%d} __resp %p{%p}\n",
+	 __errno_location(), *(int *)__errno_location(), &__resp, __resp);
+#endif 	  
+	
+#ifdef MEMCPY_TLS  
+	    // COPY previous TLS ------------------------------------------------------
 	    for (i = -tcb_offset; i < 0; i++)
 	    {
 		unsigned char __value;
 		asm volatile ("movb %%fs:%P2(%q3),%b0"
-			      : "=q" (__value) : "0" (0), "i" (0), "r" (i));
+			      : "=q" (__value) : "0" (0), "i" (0), "r" ((long)i));
 		((unsigned char *)backendptr)[i] = __value;
 	    }
-
+#endif
 	// INSTALL NEW TCB ------------------------------------------------------------
 	    __set_fs(backendptr);
 	    __GET_FS(selector);
+	    
+#ifndef MEMCPY_TLS	    
+	// RESTORE TLS (alternative to COPY previos TLS -------------------------------
+	    { // copyied from bakend_start_fn
+  __resp = (void*) v__resp; //it seems that this was already initialized (default value?!)
+  
+  const uint16_t ** pctype_b = __ctype_b_loc ();
+  const int32_t ** pctype_toupper = __ctype_toupper_loc ();
+  const int32_t ** pctype_tolower = __ctype_tolower_loc ();
 
-	//printf("ERRNO %p\n", __errno_location ());
-	//printf("sleeping\n"); sleep(1);
-
+  if (pctype_b) *pctype_b = vctype_b;
+  if (pctype_toupper) *pctype_toupper = vctype_toupper;
+  if (pctype_tolower) *pctype_tolower = vctype_tolower;
+	    }
+#endif
+	    
+#ifdef DEBUG_TLS
+  printf("ctype_b %p{%p} ctype_toupper %p{%p} ctype_tolower %p{%p} ", 
+	pctype_b, *pctype_b,
+	pctype_toupper, *pctype_toupper, pctype_tolower, *pctype_tolower); 
+  printf("errno %p{%d} __resp %p{%p}\n",
+	 __errno_location(), *(int *)__errno_location(), &__resp, __resp);
+#endif 	  
+// this two are alternative  
 	#ifdef DUMP_TLS_TCB
 	    for (i = -tcb_offset ; i < (signed int)sizeof( tcbhead_t); i++) {
 		unsigned char __value;
 		asm volatile ("movb %%fs:%P2(%q3),%b0"
-			     : "=q" (__value) : "0" (0), "i" (0), "r" (i));
-	    if (!i) printf("\n"); //separate TLS from TCB
+			     : "=q" (__value) : "0" (0), "i" (0), "r" ((long)i));
+	    if (!i) printf("\n\n"); //separate TLS from TCB
 	    printf("%.2x ", (unsigned int)__value);
 	    }
 	#endif
 
-	#ifdef DUMP_BACKEND
-	//printf("sleeping\n"); sleep(1);
+/*	#ifdef DUMP_BACKEND
 	printf("backendptr->header.self %p backendptr->header.tcb %p self %p\n",
 		backendptr->header.self, backendptr->header.tcb, THREAD_SELF);
 	#endif
-
-	  dump_current_tcb();
+*/	  dump_current_tcb();
 	  dump_current_dtv();
 
   return saved_selector;
 }
 
-void cthread_restore (unsigned long selector)
+static size_t __static_tls_align_m1, __static_tls_size;
+#define STACK_ALIGN 16
+#define ARCH_STACK_DEFAULT_SIZE (2 * 1024 * 1024)
+#define PTHREAD_STACK_MIN 16384
+#define MINIMAL_REST_STACK 2048 
+
+static size_t  __default_cthread_attr_stacksize;
+static size_t  __default_cthread_attr_guardsize;
+extern void * __libc_stack_end;
+
+//copied from nptl/nptl-init.c:280 __pthread_initialize_minimal_internal
+unsigned long cthread_initialize_minimal (void)
+{
+  struct backend * backendptr = THREAD_SELF;
+  backendptr->pid = backendptr->tid = GET_TID;
+  backendptr->specific[0] = &backendptr->specific_1stblock[0];
+//  THREAD_SETMEM (pd, user_stack, true); // the operating system is providing the stack - not used
+  backendptr->stackblock_size = (size_t) __libc_stack_end; // doesn't really have sense but ..
+
+// TLS BLOCK ------------------------------------------------------------------
+  /* Get the size of the static and alignment requirements for the TLS block.  */
+  size_t static_tls_align;
+  _dl_get_tls_static_info (&__static_tls_size, &static_tls_align);
+
+  /* Make sure the size takes all the alignments into account.  */
+  if (STACK_ALIGN > static_tls_align)
+    static_tls_align = STACK_ALIGN;
+  __static_tls_align_m1 = static_tls_align - 1;
+
+  __static_tls_size = roundup (__static_tls_size, static_tls_align);
+  printf("__static_tls_size 0x%lx __static_tls_align_m1 0x%lx\n",
+	 __static_tls_size, __static_tls_align_m1);
+
+// STACK size and alignment ---------------------------------------------------  
+  // Determine the default allowed stack size.  This is the size used in case the user does not specify one.
+  struct rlimit limit;
+  if (getrlimit (RLIMIT_STACK, &limit) != 0 || limit.rlim_cur == RLIM_INFINITY)
+    /* The system limit is not usable.  Use an architecture-specific default. */
+    limit.rlim_cur = ARCH_STACK_DEFAULT_SIZE;
+  else if (limit.rlim_cur < PTHREAD_STACK_MIN)
+    /* The system limit is unusably small.
+       Use the minimal size acceptable.  */
+    limit.rlim_cur = PTHREAD_STACK_MIN;
+
+  /* Make sure it meets the minimum size that allocate_stack
+     (allocatestack.c) will demand, which depends on the page size.  */
+  const uintptr_t pagesz = 4096;
+  const size_t minstack = pagesz + __static_tls_size + MINIMAL_REST_STACK;
+  if (limit.rlim_cur < minstack)
+    limit.rlim_cur = minstack;
+
+  /* Round the resource limit up to page size.  */
+  limit.rlim_cur = (limit.rlim_cur + pagesz - 1) & -pagesz;
+  __default_cthread_attr_stacksize = limit.rlim_cur;
+  __default_cthread_attr_guardsize = pagesz;
+  
+  printf("__..stacksize %ld __..guardsize 0x%lx\n",
+    (unsigned long)__default_cthread_attr_stacksize, (unsigned long)__default_cthread_attr_guardsize);
+
+// TODO ?!
+  /* Transfer the old value from the dynamic linker's internal location.  */
+//  *__libc_dl_error_tsd () = *(*GL(dl_error_catch_tsd)) ();
+//  GL(dl_error_catch_tsd) = &__libc_dl_error_tsd;
+  
+// NOTE NOTE NOTE here there are a lot of function call registrations  
+  
+// from /gnu/glibc/nptl/sysdeps/unix/sysv/linux/libc_pthread_init.c  
+//  __libc_pthread_init (&__fork_generation, __reclaim_stacks,ptr_pthread_functions); // WE ARE NOT SUPPORTING FORK
+
+  /* Determine whether the machine is SMP or not.  */
+  //__is_smp = is_smp_system ();
+  return 0;
+}
+
+unsigned long cthread_initialize(void)
+{
+#ifdef INIT_MINIMAL
+  return cthread_initialize_minimal();
+#else
+  return __cthread_initialize();
+#endif
+}
+
+void __cthread_restore (unsigned long selector)
 {
 
 	// TODO
@@ -855,7 +1024,13 @@ void cthread_restore (unsigned long selector)
 	                    : "memory", "cc", "r11", "cx");
 	_result;
 	}
+}
 
+void cthread_restore (unsigned long selector)
+{
+#ifdef INIT_MINIMAL
+  __cthread_restore(selector);
+#endif
 }
 
 //TODO MUST BE INTEGRATEEEE!!!
@@ -870,8 +1045,28 @@ int backend_start_func (void * args)
 {
   int _ret, ret;
   
-  //__ctype_init (); // from glibc /* Initialize pointers to locale data.  */
+  /* Initialize resolver state pointer.  */
+  //__resp = &pd->res;
+  __resp = (void*) v__resp; //it seems that this was already initialized (default value?!)
   
+  //__ctype_init (); // from glibc /* Initialize pointers to locale data.  */
+  const uint16_t ** pctype_b = __ctype_b_loc ();
+  const int32_t ** pctype_toupper = __ctype_toupper_loc ();
+  const int32_t ** pctype_tolower = __ctype_tolower_loc ();
+
+  if (pctype_b) *pctype_b = vctype_b;
+  if (pctype_toupper) *pctype_toupper = vctype_toupper;
+  if (pctype_tolower) *pctype_tolower = vctype_tolower;
+  
+#ifdef DEBUG_TLS
+  printf("ctype_b %p{%p} ctype_toupper %p{%p} ctype_tolower %p{%p} ", 
+	pctype_b, *pctype_b,
+	pctype_toupper, *pctype_toupper, pctype_tolower, *pctype_tolower); 
+  printf("errno %p{%d} __resp %p{%p}\n",
+	 __errno_location(), *(int *)__errno_location(), &__resp, __resp);
+#endif 
+  
+  /* actully run the user function */
   ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 
@@ -887,16 +1082,17 @@ int backend_start_func (void * args)
   if ( freesize > PTHREAD_STACK_MIN )
     madvise (((backend_args *)args)->stackblock, (freesize - PTHREAD_STACK_MIN), MADV_DONTNEED);
 */  
-    
-/*  printf("%s: barg %p carg %p cfunc %p\n",
+#ifdef DUMP_BACKEND    
+  printf("%s: barg %p carg %p cfunc %p\n",
     __func__,  args, ((backend_args *)args)->cfunc,((backend_args *) args)->user);
-    */ // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
+     // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
+#endif
+  
 //  free( args );
 
   // if to maintain here the following REMEMBER TO ADD DEFINES
-/*   dump_current_tcb();
+   dump_current_tcb();
   dump_current_dtv();
- */
 
   _ret = clone_exit(ret);
 //  exit(ret);
@@ -939,8 +1135,9 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 // TODO liberate the memory before creating new threads
 // TODO --- we can maintain a list ---
 // TODO
-	    
-#ifdef USE_MAP_STACK
+
+//here: int err = ALLOCATE_STACK (iattr, &pd); (glibc/nptl/pthread_create.c)
+#ifdef USE_MMAP_STACK
 	    //copied from glibc/nptl/allocatestack.c
 	    void * stack = mmap (0, STACK_SIZE, (PROT_READ | PROT_WRITE), MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
 	    
@@ -948,6 +1145,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	      perror("mmap stack allocation error");
 	      exit(0);
 	    }
+	    mprotect (stack, 4096, PROT_NONE);
 #else
 	    //void * stack = malloc(STACK_SIZE);
 	    void * stack = calloc(STACK_SIZE, 1);
@@ -956,10 +1154,6 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		exit (0);
 	    }
 //	    memset(stack, 0, STACK_SIZE);
-#endif	    
-
-#ifdef USE_MAP_STACK
-	    mprotect (stack, 4096, PROT_NONE);
 #endif	    
 
 	    int memsz = 0; //memsz = phdr->p_memsz; <-- if there is a segment with phdr
@@ -972,9 +1166,10 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	    }
 	    //memset(__backendptr, 0, ( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN)); //removed after using calloc instead of malloc
 	#ifdef DEBUG_MALLOC_BACKEND
-	    printf("malloc(tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld) @ %p\n",
+	    printf("malloc(tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld) @ %p - %p\n",
 		  tcb_offset, sizeof(struct backend), TLS_INIT_TCB_ALIGN,
-		  (tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN), __backendptr);
+		  (tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN), __backendptr,
+		  ((char*)__backendptr + tcb_offset) );
 	#endif
 
 	    struct backend * backendptr = (void *) ((char*)__backendptr + tcb_offset);
@@ -999,7 +1194,13 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	    /* Copy the sysinfo value from the parent.  */
 	    backendptr->header.sysinfo = THREAD_GETMEM (THREAD_SELF, header.sysinfo);
 
-	    // DTV support /gnu/glibc/elf/dl-tls.c
+/* ORIGINAL CODE --- DTV support /gnu/glibc/elf/dl-tls.c
+void * internal_function _dl_allocate_tls (void *mem)
+{
+  return _dl_allocate_tls_init (mem == NULL
+				? _dl_allocate_tls_storage ()
+				: allocate_dtv (mem));
+}*/	    
 	    void* retptr = allocate_dtv(backendptr);
 	    if (retptr == NULL) {
 	      printf("allocation of dtv failed for cpu %d, exit\n", core_id);
@@ -1017,7 +1218,8 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 	    }
 	    bkargs->user = arg;
 	    bkargs->stackblock = stack;
-	    bkargs->cfunc = cfunc;
+	    bkargs->cfunc = cfunc;   
+	    
 	    /* NOTE: tls value is struct pthread *
 	     * in glibc/nptl/sysdeps/pthread/createthread.c
 	     * do_clone (struct pthread *pd, const struct pthread_attr * attr,
@@ -1045,5 +1247,21 @@ return r;
 
 }
 
+// TLS
+/*antoniob@gigi:/home/antoniob/mklinux-threads/mklinux-utils-cthread/bomp/lib$ readelf -s /lib/libc-2.11.1.so | grep TLS
+   291: 0000000000000010     4 TLS     GLOBAL DEFAULT   22 errno@@GLIBC_PRIVATE
+  1434: 0000000000000054     4 TLS     GLOBAL DEFAULT   22 h_errno@@GLIBC_PRIVATE
+  1824: 0000000000000008     8 TLS     GLOBAL DEFAULT   21 __resp@@GLIBC_PRIVATE
 
-
+TLS_START: 0x6047a8:       0x00007ffff7dd7580  __resp: 0x00007ffff7ddb300
+0x6047b8: errno: 0x00000000 00000000    tolower: 0x00007ffff7b8d180
+0x6047c8: toupper: 0x00007ffff7b8d980    ctype: 0x00007ffff7b8df80
+0x6047d8:       0x00007ffff7dd8e40      0x0000000000000000
+0x6047e8:       0x0000000000000000      0x0000000000000000
+0x6047f8:       0x00000000 h_errno: 00000000      0x0000000000000000
+0x604808:       0x0000000000000000      
+TCB_START:                                         0x0000000000604810
+0x604818:       0x0000000000604d30      0x0000000000604810
+0x604828:       0x0000000000000001      0x0000000000000000
+0x604838:       0x468ecd5300cd7400      0x8edfaac970a9a4cb
+*/

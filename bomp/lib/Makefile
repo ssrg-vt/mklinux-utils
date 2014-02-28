@@ -20,7 +20,7 @@ libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
 libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 	$(AR) -q $@ $^
 
-tests: libpomp.a
+tests: cthread.o
 	$(CC) $(CFLAGS) -o test-cthread tst-cthread.c $^
 	$(CC) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
 	$(CC) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^

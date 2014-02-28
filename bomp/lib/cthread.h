@@ -23,20 +23,24 @@
 //#undef USE_SYSCALL_SETAFFINITY
 //#define SMALL_TLS 
 #undef SMALL_TLS
-#define USE_MAP_STACK
-//#undef USE_MAP_STACK
+#define USE_MMAP_STACK
+//#undef USE_MMAP_STACK
+#define INIT_MINIMAL
+//#undef INIT_MINIMAL
 
 /* Debugging macros */
 //#define DEBUG_MALLOC_BACKEND
 #undef DEBUG_MALLOC_BACKEND
-//#define DUMP_CUR_TCB
-#undef DUMP_CUR_TCB
-//#define DUMP_CUR_DTV
-#undef DUMP_CUR_DTV
-//#define DUMP_BACKEND
-#undef DUMP_BACKEND
+#define DUMP_CUR_TCB
+//#undef DUMP_CUR_TCB
+#define DUMP_CUR_DTV
+//#undef DUMP_CUR_DTV
+#define DUMP_BACKEND
+//#undef DUMP_BACKEND
 //#define DUMP_TLS_TCB
 #undef DUMP_TLS_TCB
+#define DEBUG_TLS
+//#undef DEBUG_TLS
 
 /* Thread identifiers.  The structure of the attribute type is not
    exposed on purpose.  */
