@@ -17,8 +17,8 @@
 #define GLIBC_STYLE 1
 #define __ASSUME_NO_CLONE_DETACHED 1
 //#define __ASSUME_NO_CLONE_DETACHED 0
-#define REDEFINE_SETAFFINITY
-//#undef REDEFINE_SETAFFINITY
+//#define REDEFINE_SETAFFINITY
+#undef REDEFINE_SETAFFINITY
 #define USE_SYSCALL_SETAFFINITY
 //#undef USE_SYSCALL_SETAFFINITY
 //#define SMALL_TLS 
@@ -29,18 +29,18 @@
 //#undef INIT_MINIMAL
 
 /* Debugging macros */
-//#define DEBUG_MALLOC_BACKEND
-#undef DEBUG_MALLOC_BACKEND
-#define DUMP_CUR_TCB
-//#undef DUMP_CUR_TCB
-#define DUMP_CUR_DTV
-//#undef DUMP_CUR_DTV
+#define DEBUG_MALLOC_BACKEND
+//#undef DEBUG_MALLOC_BACKEND
+//#define DUMP_CUR_TCB
+#undef DUMP_CUR_TCB
+//#define DUMP_CUR_DTV
+#undef DUMP_CUR_DTV
 #define DUMP_BACKEND
 //#undef DUMP_BACKEND
 //#define DUMP_TLS_TCB
 #undef DUMP_TLS_TCB
-#define DEBUG_TLS
-//#undef DEBUG_TLS
+//#define DEBUG_TLS
+#undef DEBUG_TLS
 
 /* Thread identifiers.  The structure of the attribute type is not
    exposed on purpose.  */

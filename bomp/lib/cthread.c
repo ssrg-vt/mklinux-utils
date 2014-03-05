@@ -54,6 +54,9 @@
 // the following code has been copied from a webpage 
 /* Prototypes for __malloc_hook, __free_hook */
 #include <malloc.h>
+#include "spin.h"
+
+static bomp_lock_t malloc_lock =0;
 
 /* Prototypes for our hooks.  */
 static void my_init_hook (void);
@@ -73,29 +76,69 @@ static void my_init_hook (void)
        //__free_hook = my_free_hook;
      }
 
+struct malloc_trace_item {
+  unsigned long tid;
+  unsigned long size;
+  void* caller;
+  void* result;
+};
+#define MAX_TRACE_BUFFER 64
+static struct malloc_trace_item malloc_trace_buffer[MAX_TRACE_BUFFER];
+static unsigned long malloc_trace_idx=0;
+
 static void * my_malloc_hook (size_t size, const void *caller)
      {
        void *result;
 //       unsigned long bp;
        /* Restore all old hooks */
+bomp_lock(&malloc_lock);
        __malloc_hook = old_malloc_hook;
        //__free_hook = old_free_hook;
        /* Call recursively */
        result = malloc (size);
+       malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].tid = GET_TID;
+       malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].size = size;
+       malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].caller = (void*)caller;
+       malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].result = result;
+       malloc_trace_idx++;	
+
        /* Save underlying hooks */
        old_malloc_hook = __malloc_hook;
+bomp_unlock(&malloc_lock);
        //old_free_hook = __free_hook;
        /* printf might call malloc, so protect it too. */
 //       __asm__ __volatile__ ("movq %%rbp,%q0\n" : "=r" (bp));
 
-       printf ("%ld: malloc(%u) (%p-%p) \n",   // bp %lx\n",
-	        GET_TID, (unsigned int) size,
-	       result, result + size); //PREVIOUS VERSION bp);
+//       printf ("%ld: malloc(%u) (%p-%p) \n",   // bp %lx\n",
+//	        GET_TID, (unsigned int) size, result, result + size); //PREVIOUS VERSION bp);
        /* Restore our own hooks */
        __malloc_hook = my_malloc_hook;
        //__free_hook = my_free_hook;
        return result;
      }
+
+static void dump_my_malloc_trace()
+{
+  unsigned long traced, __traced;
+  int i;
+
+bomp_lock(&malloc_lock);
+  traced = malloc_trace_idx;
+bomp_unlock(&malloc_lock);
+  for (i=0; (i<MAX_TRACE_BUFFER && i<traced); i++)
+    printf("tid: %lu area: %p-%p caller %p\n",
+	malloc_trace_buffer[i].tid, malloc_trace_buffer[i].result,
+	malloc_trace_buffer[i].result + malloc_trace_buffer[i].size,
+	malloc_trace_buffer[i].caller);
+  __traced = traced;
+bomp_lock(&malloc_lock);
+  traced = malloc_trace_idx;
+bomp_unlock(&malloc_lock);
+  printf("logged events: %ld (%ld)\n", traced, __traced);
+}
+
+#else
+static inline void dump_my_malloc_trace() {}
 #endif
 
 // to simulate pthread on exit (the original code from glibc/nptl/sysdeps/x86_64/pthreaddef.h follows)
@@ -1028,7 +1071,10 @@ void __cthread_restore (unsigned long selector)
 
 void cthread_restore (unsigned long selector)
 {
-#ifdef INIT_MINIMAL
+
+  dump_my_malloc_trace();
+
+#ifndef INIT_MINIMAL
   __cthread_restore(selector);
 #endif
 }
@@ -1044,6 +1090,7 @@ typedef struct _backend_args {
 int backend_start_func (void * args)
 {
   int _ret, ret;
+//  unsigned long tid = GET_TID;
   
   /* Initialize resolver state pointer.  */
   //__resp = &pd->res;
@@ -1065,7 +1112,12 @@ int backend_start_func (void * args)
   printf("errno %p{%d} __resp %p{%p}\n",
 	 __errno_location(), *(int *)__errno_location(), &__resp, __resp);
 #endif 
-  
+ 
+#ifdef DUMP_BACKEND
+  printf("%s: barg %p carg %p pid %lu\n",
+	__func__, args, ((backend_args *)args)->user, GET_TID);
+#endif
+ 
   /* actully run the user function */
   ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
@@ -1083,8 +1135,8 @@ int backend_start_func (void * args)
     madvise (((backend_args *)args)->stackblock, (freesize - PTHREAD_STACK_MIN), MADV_DONTNEED);
 */  
 #ifdef DUMP_BACKEND    
-  printf("%s: barg %p carg %p cfunc %p\n",
-    __func__,  args, ((backend_args *)args)->cfunc,((backend_args *) args)->user);
+  printf("%s: barg %p carg %p cfunc %p tid %lu\n",
+    __func__,  args, ((backend_args *)args)->user,((backend_args *) args)->cfunc, GET_TID);
      // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
 #endif
   
@@ -1093,6 +1145,8 @@ int backend_start_func (void * args)
   // if to maintain here the following REMEMBER TO ADD DEFINES
    dump_current_tcb();
   dump_current_dtv();
+
+asm volatile ("");
 
   _ret = clone_exit(ret);
 //  exit(ret);
