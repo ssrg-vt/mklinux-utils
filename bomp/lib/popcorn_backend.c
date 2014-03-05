@@ -126,8 +126,10 @@ void backend_exit (void)
 
   cthread_restore(saved_selector);
   printf("%s: [main %ld] exit_call\n", __func__, (long)getpid());
-  
+
+#ifdef SHOW_PROFILING
   dump_sched_self ();
+#endif  
 }
 
 void backend_create_time(int cores)

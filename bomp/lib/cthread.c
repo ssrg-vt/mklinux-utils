@@ -83,47 +83,53 @@ static void my_init_hook (void)
        //__free_hook = my_free_hook;
      }
 
+#ifdef DUMP_MALLOC_BACKEND
+#define MAX_TRACE_BUFFER 64
 struct malloc_trace_item {
   unsigned long tid;
   unsigned long size;
   void* caller;
   void* result;
 };
-#define MAX_TRACE_BUFFER 64
 static struct malloc_trace_item malloc_trace_buffer[MAX_TRACE_BUFFER];
 static unsigned long malloc_trace_idx=0;
+#endif
 
 static void * my_malloc_hook (size_t size, const void *caller)
-     {
-       void *result;
-//       unsigned long bp;
+{
+       void *result; //unsigned long bp;
+
+bomp_lock(&malloc_lock);       
        /* Restore all old hooks */
-bomp_lock(&malloc_lock);
        __malloc_hook = old_malloc_hook;
        //__free_hook = old_free_hook;
+       
        /* Call recursively */
        result = malloc (size);
+#ifdef DUMP_MALLOC_BACKEND       
        malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].tid = GET_TID;
        malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].size = size;
        malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].caller = (void*)caller;
        malloc_trace_buffer[(malloc_trace_idx%MAX_TRACE_BUFFER)].result = result;
-       malloc_trace_idx++;	
-
+       malloc_trace_idx++;
+#endif       
        /* Save underlying hooks */
        old_malloc_hook = __malloc_hook;
-bomp_unlock(&malloc_lock);
        //old_free_hook = __free_hook;
+       
        /* printf might call malloc, so protect it too. */
 //       __asm__ __volatile__ ("movq %%rbp,%q0\n" : "=r" (bp));
-
 //       PRINTF ("%ld: malloc(%u) (%p-%p) \n",   // bp %lx\n",
 //	        GET_TID, (unsigned int) size, result, result + size); //PREVIOUS VERSION bp);
+
        /* Restore our own hooks */
        __malloc_hook = my_malloc_hook;
        //__free_hook = my_free_hook;
+bomp_unlock(&malloc_lock);
        return result;
-     }
+}
 
+#ifdef DUMP_MALLOC_BACKEND
 static void dump_my_malloc_trace()
 {
   unsigned long traced, __traced;
@@ -143,8 +149,11 @@ bomp_lock(&malloc_lock);
 bomp_unlock(&malloc_lock);
   PRINTF("logged events: %ld (%ld)\n", traced, __traced);
 }
+#endif
 
-#else
+#endif
+
+#ifndef dump_my_malloc_trace
 static inline void dump_my_malloc_trace() {}
 #endif
 
@@ -1097,13 +1106,12 @@ typedef struct _backend_args {
 int backend_start_func (void * args)
 {
   int _ret, ret;
-//  unsigned long tid = GET_TID;
   
   /* Initialize resolver state pointer.  */
   //__resp = &pd->res;
   __resp = (void*) v__resp; //it seems that this was already initialized (default value?!)
   
-  //__ctype_init (); // from glibc /* Initialize pointers to locale data.  */
+  //__ctype_init (); // from glibc /* Initialize pointers to locale data. */
   const uint16_t ** pctype_b = __ctype_b_loc ();
   const int32_t ** pctype_toupper = __ctype_toupper_loc ();
   const int32_t ** pctype_tolower = __ctype_tolower_loc ();
@@ -1118,17 +1126,25 @@ int backend_start_func (void * args)
 	pctype_toupper, *pctype_toupper, pctype_tolower, *pctype_tolower); 
   PRINTF("errno %p{%d} __resp %p{%p}\n",
 	 __errno_location(), *(int *)__errno_location(), &__resp, __resp);
-#endif 
- 
+#endif
+  dump_current_tcb();
+  dump_current_dtv();
 #ifdef DUMP_BACKEND
-  PRINTF("%s: barg %p carg %p pid %lu\n",
-	__func__, args, ((backend_args *)args)->user, GET_TID);
+  PRINTF("%s: TID %lu barg %p carg %p bfunc %p\n",
+	__func__, GET_TID,
+	args, ((backend_args *)args)->user, ((backend_args *) args)->cfunc);
 #endif
  
   /* actully run the user function */
   ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 
+#ifdef DUMP_BACKEND
+  PRINTF("%s: TID %lu barg %p carg %p bfunc %p ret %d\n",
+	__func__, GET_TID,
+	args, ((backend_args *)args)->user, ((backend_args *) args)->cfunc, ret);
+#endif
+    
   //__call_tls_dtors (); // from glibc
   //__nptl_deallocate_tsd (); // from glibc   /* Run the destructor for the thread-local data.  */
 
@@ -1141,24 +1157,13 @@ int backend_start_func (void * args)
   if ( freesize > PTHREAD_STACK_MIN )
     madvise (((backend_args *)args)->stackblock, (freesize - PTHREAD_STACK_MIN), MADV_DONTNEED);
 */  
-#ifdef DUMP_BACKEND    
-  PRINTF("%s: barg %p carg %p cfunc %p tid %lu\n",
-    __func__,  args, ((backend_args *)args)->user,((backend_args *) args)->cfunc, GET_TID);
-     // for some reason (concurrency..) printf is using futex.. so avoid it in the current environment
-#endif
+  // free( args );
+
+  asm volatile (""); // to ensure the gcc will not be clever and change the order to execution here
+  _ret = clone_exit(ret); // PREVIOUSLY exit(ret); --- exit(ret) is exiting the whole process
   
-//  free( args );
-
-  // if to maintain here the following REMEMBER TO ADD DEFINES
-   dump_current_tcb();
-  dump_current_dtv();
-
-asm volatile ("");
-
-  _ret = clone_exit(ret);
-//  exit(ret);
   /* never reaching here */
-  return (3333 + _ret);
+  return (0xDEADBEEF + _ret);
 }
 
 // we assume stack is growing downward (tipical in x86)
@@ -1226,8 +1231,9 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		exit (0);
 	    }
 	    //memset(__backendptr, 0, ( tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN)); //removed after using calloc instead of malloc
-	#ifdef DEBUG_MALLOC_BACKEND
-	    PRINTF("malloc(tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld) @ %p - %p\n",
+	#ifdef DUMP_BACKEND
+	    PRINTF("%s: tcb_offset %d, struct backend %ld, TLS_INIT_TCB %ld, total %ld @ %p - %p\n",
+		  __func__, 
 		  tcb_offset, sizeof(struct backend), TLS_INIT_TCB_ALIGN,
 		  (tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN), __backendptr,
 		  ((char*)__backendptr + tcb_offset) );

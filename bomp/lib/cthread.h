@@ -27,16 +27,20 @@
 //#undef USE_MMAP_STACK
 #define INIT_MINIMAL
 //#undef INIT_MINIMAL
+//#define SHOW_PROFILING
+#undef SHOW_PROFILING
 
 /* Debugging macros */
 #define DEBUG_MALLOC_BACKEND
 //#undef DEBUG_MALLOC_BACKEND
+//#define DUMP_MALLOC_BACKEND
+#undef DUMP_MALLOC_BACKEND
 //#define DUMP_CUR_TCB
 #undef DUMP_CUR_TCB
 //#define DUMP_CUR_DTV
 #undef DUMP_CUR_DTV
-#define DUMP_BACKEND
-//#undef DUMP_BACKEND
+//#define DUMP_BACKEND
+#undef DUMP_BACKEND
 //#define DUMP_TLS_TCB
 #undef DUMP_TLS_TCB
 //#define DEBUG_TLS
