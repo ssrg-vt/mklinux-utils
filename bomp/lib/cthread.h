@@ -29,6 +29,8 @@
 //#undef INIT_MINIMAL
 //#define SHOW_PROFILING
 #undef SHOW_PROFILING
+#define PTHREAD_TLS_DTV_ONSTACK
+#undef PTHREAD_TLS_DTV_ONSTACK
 
 /* Debugging macros */
 #define DEBUG_MALLOC_BACKEND
@@ -45,6 +47,8 @@
 #undef DUMP_TLS_TCB
 //#define DEBUG_TLS
 #undef DEBUG_TLS
+//#define DEBUG_STACK
+#undef DEBUG_STACK
 
 /* Thread identifiers.  The structure of the attribute type is not
    exposed on purpose.  */

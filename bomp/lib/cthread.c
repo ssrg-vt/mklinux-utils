@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <sched.h> //necessary for clone
+#include <assert.h>
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -332,6 +333,9 @@ typedef struct
   void *__padding[8];
 } tcbhead_t;
 
+/* Alignment requirement for TCB.  */
+#define TCB_ALIGNMENT		16
+
 //from glibc/nptl/descr.h
 //in struct pthread
 struct backend {
@@ -360,7 +364,7 @@ struct backend {
   char specific_used;
   
   /* True if the user provided the stack.  */
-//  bool user_stack;
+  //bool user_stack; //
   
     /* The result of the thread function.  */
   void *result;
@@ -374,7 +378,11 @@ struct backend {
      size.  */
   void *stackblock;
   size_t stackblock_size;
-};
+  
+  /* Size of the included guard area.  */
+  size_t guardsize;
+  
+} __attribute ((aligned (TCB_ALIGNMENT)));;
 
 
 /* NOTE: struct pthread's first entry is a tcbhead_t
@@ -1013,8 +1021,10 @@ unsigned long cthread_initialize_minimal (void)
   __static_tls_align_m1 = static_tls_align - 1;
 
   __static_tls_size = roundup (__static_tls_size, static_tls_align);
+#ifdef DEBUG_TLS  
   PRINTF("__static_tls_size 0x%lx __static_tls_align_m1 0x%lx\n",
 	 __static_tls_size, __static_tls_align_m1);
+#endif  
 
 // STACK size and alignment ---------------------------------------------------  
   // Determine the default allowed stack size.  This is the size used in case the user does not specify one.
@@ -1038,9 +1048,11 @@ unsigned long cthread_initialize_minimal (void)
   limit.rlim_cur = (limit.rlim_cur + pagesz - 1) & -pagesz;
   __default_cthread_attr_stacksize = limit.rlim_cur;
   __default_cthread_attr_guardsize = pagesz;
-  
+
+#ifdef DEBUG_STACK  
   PRINTF("__..stacksize %ld __..guardsize 0x%lx\n",
     (unsigned long)__default_cthread_attr_stacksize, (unsigned long)__default_cthread_attr_guardsize);
+#endif  
 
 // TODO ?!
   /* Transfer the old value from the dynamic linker's internal location.  */
@@ -1159,11 +1171,168 @@ int backend_start_func (void * args)
 */  
   // free( args );
 
-  asm volatile (""); // to ensure the gcc will not be clever and change the order to execution here
+  asm volatile (""); // Antonio: to ensure the gcc will not be clever and change the order to execution here
   _ret = clone_exit(ret); // PREVIOUSLY exit(ret); --- exit(ret) is exiting the whole process
   
   /* never reaching here */
   return (0xDEADBEEF + _ret);
+}
+
+//static int allocate_stack (const struct pthread_attr *attr,
+//		   struct pthread **pdp, ALLOCATE_STACK_PARMS)
+static int allocate_stack (struct backend **pbe, void **stack, int core_id)
+{
+  size_t size, pagesize_m1 = __getpagesize () - 1;
+  size_t guardsize;
+  void * stacktop;
+  void * mem;
+    
+  // here we only consider the case the user does not provide memory for the stack
+  size = __default_cthread_attr_stacksize;
+  const int prot = (PROT_READ | PROT_WRITE);
+  
+  /* Adjust the stack size for alignment.  */
+  size &= ~__static_tls_align_m1;
+  assert (size != 0);
+  
+  guardsize = (__default_cthread_attr_guardsize + pagesize_m1) & ~pagesize_m1;
+  if (__builtin_expect(
+    size < ((guardsize + __static_tls_size + MINIMAL_REST_STACK + pagesize_m1) & ~pagesize_m1),
+		       0)) {
+	PRINTF("%s: the stack is too small (or the guard too large\n", __func__);
+	return -EINVAL;
+  }
+	
+#ifdef USE_MMAP_STACK
+  mem = mmap (0, size, prot,
+		     (MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK), -1, 0);
+  if ( (mem == MAP_FAILED) ) {
+    perror("mmap stack allocation error");
+    return -ENOMEM;
+  }
+  assert (mem != 0);
+#else
+  //void * stack = malloc(STACK_SIZE); //malloc does not return a zeroed area
+  mem = calloc(size, 1);
+  if (!mem) {
+    perror("stack allocation error");
+    return -ENOMEM;
+  }
+  //memset(stack, 0, STACK_SIZE); //paired with malloc
+#endif
+
+#ifdef PTHREAD_TLS_DTV_ONSTACK
+  /* Place the thread descriptor at the end of the stack. */
+  struct backend *be = (struct backend *) ((char *) mem + size) - 1;
+#else
+  /* this is the initial implementation, divergent from glibc */
+  struct backend *be;
+  {  
+    //from /gnu/glibc/csu/libc-tls.c __libc_setup_tls
+    int max_align = TLS_INIT_TCB_ALIGN;
+    size_t memsz = 0; //memsz = phdr->p_memsz; /* Look through the TLS segment if there is any.  */
+#ifdef SEARCH_THE_ELF_LOADER    
+    size_t align =0;
+    const ElfW(Phdr) *phdr;
+    if (_dl_phdr != NULL)
+      for (phdr = _dl_phdr; phdr < &_dl_phdr[_dl_phnum]; ++phdr)
+        if (phdr->p_type == PT_TLS)
+        {
+          // Remember the values we need.
+	  memsz = phdr->p_memsz;
+	  align = phdr->p_align;
+	  if (phdr->p_align > max_align)
+	    max_align = phdr->p_align;
+	  break;
+	}
+#endif
+    
+    int tcb_offset = roundup( (memsz + __static_tls_size), TLS_INIT_TCB_ALIGN); //tcb_offset = roundup (memsz + GL(dl_tls_static_size), tcbalign);
+    int tlsblock = tcb_offset + sizeof(struct backend) + max_align; //tlsblock = __sbrk (tcb_offset + tcbsize + max_align);
+   struct backend * __be = calloc(tlsblock, 1);
+    if (!__be) {
+      PRINTF("%s: TLS allocation error\n", __func__);
+      munmap(mem, size);
+      return -ENOMEM;
+    }
+    be = (struct backend *) ((char*)__be + tlsblock) -1;
+#ifdef DUMP_BACKEND
+    PRINTF("%s: tls %p, tp %p, tcb_offset %d, tlsblock %d\n",
+      __func__, __be, be, tcb_offset, tlsblock);
+#endif
+  }
+#endif  
+ 
+  /* Remember the stack-related values.  */
+  be->stackblock = mem;
+  be->stackblock_size = size;
+
+  /* We allocated the first block thread-specific data array.
+    This address will not change for the lifetime of this
+    descriptor.  */
+  be->specific[0] = be->specific_1stblock;
+  /* This is at least the second thread.  */
+  be->header.multiple_threads = 1;
+
+//#ifndef TLS_MULTIPLE_THREADS_IN_TCB
+//  __pthread_multiple_threads = *__libc_multiple_threads_ptr = 1;
+//#endif
+
+#ifndef __ASSUME_PRIVATE_FUTEX
+  /* The thread must know when private futexes are supported.  */
+  be->header.private_futex =
+    THREAD_GETMEM (THREAD_SELF, header.private_futex);
+#endif
+  /* Copy the sysinfo value from the parent.  */
+  be->header.sysinfo =
+    THREAD_GETMEM (THREAD_SELF, header.sysinfo);
+    
+  /* The process ID is also the same as that of the caller.  */
+  be->pid = THREAD_GETMEM (THREAD_SELF, pid);
+  
+/* ORIGINAL CODE --- DTV support /gnu/glibc/elf/dl-tls.c
+void * internal_function _dl_allocate_tls (void *mem)
+{ return _dl_allocate_tls_init (mem == NULL ? _dl_allocate_tls_storage () : allocate_dtv (mem)); }*/	    
+  void* retptr = allocate_dtv(be);
+  if (retptr == NULL) {
+    PRINTF("%s: error allocation of dtv failed for cpu %d, exit\n",
+	   __func__, core_id);
+    munmap(mem, size);    
+    return -ENOMEM;
+  }
+  if (_dl_allocate_tls_init (retptr) == NULL) {
+    PRINTF("%s: error allocation of tls failed for cpu %d, exit\n",
+	   __func__, core_id);
+    munmap(mem, size);
+    return -ENOMEM;
+  }
+ 
+  /* Create or resize the guard area if necessary.  */
+  if (__builtin_expect (guardsize > be->guardsize, 0))
+  {
+    char *guard = mem;
+    if (mprotect (guard, guardsize, PROT_NONE) != 0)
+    {
+      PRINTF("%s: error mprotect of guard for cpu %d, exit\n",
+	     __func__, core_id);
+      
+      /* Get rid of the TLS block we allocated.  */
+      _dl_deallocate_tls (be, false);
+      munmap (mem, size);
+      return -ENOMEM;
+    }
+    be->guardsize = guardsize;
+  }  
+  // initialize the lock, initialize futex
+  
+  /* We place the thread descriptor at the end of the stack.  */
+  *pbe = be;
+
+  /* The stack begins before the TCB and the static TLS block.  */
+  stacktop = ((char *) (be + 1) - __static_tls_size);
+  *stack = stacktop;
+  
+  return 0;
 }
 
 // we assume stack is growing downward (tipical in x86)
@@ -1171,7 +1340,10 @@ int backend_start_func (void * args)
 // from glibc
 #define CLONE_SIGNAL            (CLONE_SIGHAND | CLONE_THREAD)
 
-//int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg);
+/* cthread_create
+ * 
+ * surrogate of: int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg);
+ */ 
 int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
 {
 	int core_id = (int)((long) attr);
@@ -1202,7 +1374,7 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 // TODO --- we can maintain a list ---
 // TODO
 
-//here: int err = ALLOCATE_STACK (iattr, &pd); (glibc/nptl/pthread_create.c)
+//from: int err = ALLOCATE_STACK (iattr, &pd); (glibc/nptl/pthread_create.c)
 #ifdef USE_MMAP_STACK
 	    //copied from glibc/nptl/allocatestack.c
 	    void * stack = mmap (0, STACK_SIZE, (PROT_READ | PROT_WRITE), MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
@@ -1238,17 +1410,22 @@ int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *
 		  (tcb_offset + sizeof(struct backend) + TLS_INIT_TCB_ALIGN), __backendptr,
 		  ((char*)__backendptr + tcb_offset) );
 	#endif
-
 	    struct backend * backendptr = (void *) ((char*)__backendptr + tcb_offset);
+	    
+//from: glibc/nptl/pthread_create.c __pthread_create_2_1()	    
 	    backendptr->header.self = backendptr; // <--- from pthread_create.c:501
 	    backendptr->header.tcb = backendptr; // <--- from pthread_create.c:504
 	    // nptl/allocatestack.c
+	    
 	      /* The first TSD block is included in the TCB.  */
 	    backendptr->specific[0] = backendptr->specific_1stblock;
 	    backendptr->header.multiple_threads = 1;
-
+	    
 	//extern int * __libc_multiple_threads_ptr;
 	//    *__libc_multiple_threads_ptr = 1;
+	    
+	    backendptr->start_routine = cfunc;
+	    backendptr->arg = arg;
 
 	    THREAD_COPY_STACK_GUARD (backendptr);
 	    THREAD_COPY_POINTER_GUARD (backendptr);
@@ -1286,31 +1463,34 @@ void * internal_function _dl_allocate_tls (void *mem)
 	    bkargs->user = arg;
 	    bkargs->stackblock = stack;
 	    bkargs->cfunc = cfunc;   
+	   
+// from glibc/nptl/sysdeps/pthread/createthread.c do_clone
+	//do_clone: if stopped eventually lock the thread here
+	//atomic_increment (&__nptl_nthreads); // TODO ?!
 	    
-	    /* NOTE: tls value is struct pthread *
-	     * in glibc/nptl/sysdeps/pthread/createthread.c
-	     * do_clone (struct pthread *pd, const struct pthread_attr * attr,
-	     *     int clone_flags, int (*fct) (void*), STACK_VARIABLES_PARMS, int stopped)
-	     * :75 int rc = ARCH_CLONE (fct, STACK_VARIABLES_ARGS, clone_flags,
-	     *                   pd, &pd->tid, pd, &pd->tid);
-	     */
-	    //r = clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, 0, &ctid);
-	    r = clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, backendptr, &ctid);
-	    if (r == -1) {
-	        //PRINTF("clone failed\n");
+	/* NOTE: tls value is struct pthread *
+	 * in glibc/nptl/sysdeps/pthread/createthread.c
+	 * do_clone (struct pthread *pd, const struct pthread_attr * attr,
+	 *     int clone_flags, int (*fct) (void*), STACK_VARIABLES_PARMS, int stopped)
+	 * :75 int rc = ARCH_CLONE (fct, STACK_VARIABLES_ARGS, clone_flags,
+	 *                   pd, &pd->tid, pd, &pd->tid);
+	 */
+	//r = clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, backendptr, &ctid);
+	r = __clone(backend_start_func, (stack+STACK_SIZE), clone_flags, bkargs, &ptid, backendptr, &ctid);
+	if (r == -1) {
 		perror("clone failed");
 		exit (0);
-	    }
+	}
 #ifdef DUMP_BACKEND
 	    PRINTF ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
 		    __func__, r, core_id,
 		    (stack+STACK_SIZE), backendptr,
 		    bkargs, arg, backend_start_func, cfunc);
 #endif
+	//do_clone: if stopped, eventually call sched_setaffinity and unlock it    
+	(THREAD_SELF)->header.multiple_threads =1;
 
-// TODO	    DO I HAVE TO SAVE _backend_args here?!
-
-return r;
+	return r;
 
 }
 
