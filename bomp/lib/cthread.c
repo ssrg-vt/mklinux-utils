@@ -1148,8 +1148,13 @@ int backend_start_func (void * args)
 #endif
  
   /* actully run the user function */
+#ifndef STRICT_PTHREAD_GLIBC
   ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
+#else
+  ret = (long)
+    ((struct backend *)args)->start_routine(((struct backend *) args)->arg);
+#endif  
 
 #ifdef DUMP_BACKEND
   PRINTF("%s: TID %lu barg %p carg %p bfunc %p ret %d\n",
@@ -1344,7 +1349,7 @@ void * internal_function _dl_allocate_tls (void *mem)
  * 
  * surrogate of: int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void*), void *arg);
  */ 
-int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
+static inline int __cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
 {
 	int core_id = (int)((long) attr);
   int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
@@ -1492,6 +1497,87 @@ void * internal_function _dl_allocate_tls (void *mem)
 
 	return r;
 
+}
+
+#if GLIBC_STYLE
+  #if __ASSUME_NO_CLONE_DETACHED == 0
+    #define _CLONE_DETACHED CLONE_DETACHED
+  #else
+    #define _CLONE_DETACHED (0)
+  #endif
+  
+  #define _CLONE_FLAGS \
+    (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGNAL | CLONE_SETTLS | \
+     CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_SYSVSEM | \
+     _CLONE_DETACHED | 0)
+#else
+  //int clone_flags = (CLONE_THREAD|CLONE_SIGHAND|CLONE_VM); // Marina's version
+  #define _CLONE_FLAGS \
+    (CLONE_VM | CLONE_SIGNAL | CLONE_SETTLS | \
+    CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | 0)
+#endif
+
+static inline int cthread_create_glibc (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
+{
+  int core_id = (int)((long) attr);
+  int clone_flags = _CLONE_FLAGS;
+  int r = 0; // pthread_create(&pthread, NULL, cfunc, arg);
+  pid_t ptid, ctid;
+  struct backend * backendptr =0;
+  void * stack =0;
+
+// TODO eventually free memory before creating new threads
+
+//from: glibc/nptl/pthread_create.c __pthread_create_2_1()  
+  if (r = allocate_stack(&backendptr, &stack, core_id) != 0) {
+    PRINTF("%s: error allocate_stack failed with %d\n",
+	   __func__, r);
+    exit(0);
+  }
+  /* Reference to the TCB itself.  */
+  backendptr->header.self = backendptr;
+  /* Self-reference for TLS.  */
+  backendptr->header.tcb = backendptr;
+    
+  /* Store the address of the start routine and the parameter. */  
+  backendptr->start_routine = cfunc;
+  backendptr->arg = arg;
+
+  /* Copy the stack guard canary.  */
+  THREAD_COPY_STACK_GUARD (backendptr);
+  
+  /* Copy the pointer guard value.  */  
+  THREAD_COPY_POINTER_GUARD (backendptr);
+
+// from glibc/nptl/sysdeps/pthread/createthread.c do_clone
+  //do_clone: if stopped eventually lock the thread here
+  //atomic_increment (&__nptl_nthreads); // maybe TODO
+	    
+  r = __clone(backend_start_func, stack, clone_flags, backendptr, &ptid, backendptr, &ctid);
+  if (r == -1) {
+    PRINTF("%s: error clone failed with %d\n",
+	   __func__, r);
+    exit (0);
+  }
+#ifdef DUMP_BACKEND
+	    PRINTF ("%s: TID %d, cpuid %d stack %p tls %p barg %p carg %p bfunc %p cfunc %p\n",
+		    __func__, r, core_id,
+		    (stack+STACK_SIZE), backendptr,
+		    bkargs, arg, backend_start_func, cfunc);
+#endif
+  //do_clone: if stopped, eventually call sched_setaffinity and unlock it    
+  (THREAD_SELF)->header.multiple_threads =1;
+
+  return r;
+}
+
+int cthread_create (cthread_t *thread, void* attr, void *(*cfunc)(void*), void *arg)
+{
+#ifndef STRICT_PTHREAD_GLIBC
+  return __cthread_create(thread, attr, cfunc, arg);
+#else
+  return cthread_create_glibc(thread, attr, cfunc, arg);
+#endif
 }
 
 // TLS
