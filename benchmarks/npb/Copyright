@@ -1,0 +1,7 @@
+ 
+Most of the code Copyright ETH Zurich, 2007 - 2009.
+
+This code was firstly written to fit the Barrelfish operating system,
+we modify it to fit Popcorn with and without pthread library.
+
+All modifications to sources Copyright Antonio Barbalace, 2013 - 2014
