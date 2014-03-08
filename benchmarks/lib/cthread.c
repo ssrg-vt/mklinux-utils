@@ -1146,6 +1146,7 @@ int backend_start_func (void * args)
 	__func__, GET_TID,
 	args, ((backend_args *)args)->user, ((backend_args *) args)->cfunc);
 #endif
+//malloc_stats(); //it allocates from  every different arena; note that there is a linked list of arenas and each thread as a __thread variable with its last used
  
   /* actully run the user function */
 #ifndef STRICT_PTHREAD_GLIBC
