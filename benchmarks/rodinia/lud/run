@@ -1,0 +1,1 @@
+./lud -n NUM_THREADS -i ./2048.dat 
