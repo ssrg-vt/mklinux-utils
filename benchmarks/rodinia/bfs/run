@@ -1,0 +1,1 @@
+./bfs NUM_THREADS ./graph1MW_6.txt 
