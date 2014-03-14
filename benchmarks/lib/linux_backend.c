@@ -78,7 +78,9 @@ void backend_init(void)
 void backend_exit(void)
 {
 	/* nop */
+#ifdef SHOW_PROFILING	
 	dump_sched_self();
+#endif	
 }
 
 void backend_create_time(int cores)
