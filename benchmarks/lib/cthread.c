@@ -27,6 +27,7 @@
 
 #include "cthread.h"
 
+//HAVE A LOOK @ glibc/sysdeps/unix/sysv/linux/x86_64/sysdep.h
 /* the following code is extracted from glibc */
 // /sysdeps/unix/sysv/linux/sched_setaffinty.c
 #ifndef __NR_sched_setaffinity
@@ -168,7 +169,7 @@ static inline unsigned long clone_exit (int ret)
   __asm__ __volatile__ ("syscall\n"
 			: "=a" (_ret)
 			:"a" (__NR_exit), "D" (ret)
-			:"memory");
+			:"memory", "cc", "r11", "cx");
   return _ret;
 }
 
@@ -247,7 +248,7 @@ if (cpusetsize > __kernel_cpumask_size)
   __asm__ __volatile__ ("syscall\n"
 			: "=a" (result)
 			: "a" (__NR_sched_setaffinity), "D" (pid), "S" (cpusetsize), "d" (cpuset)
-			: "memory");
+			: "memory", "cc", "r11", "cx");
 #endif
   return result;
 }
