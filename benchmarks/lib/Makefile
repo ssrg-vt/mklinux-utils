@@ -25,6 +25,7 @@ tests: cthread.o
 	$(CC) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
 	$(CC) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^
 	$(CC) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
+	$(CC) $(CFLAGS) -o test-cthread4 tst-cthread4.c $^
 	$(CC) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
 
 clean:

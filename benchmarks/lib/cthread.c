@@ -1150,13 +1150,23 @@ int backend_start_func (void * args)
 //malloc_stats(); //it allocates from  every different arena; note that there is a linked list of arenas and each thread as a __thread variable with its last used
  
   /* actully run the user function */
+#define TEST_RETURN_STACK_PTR
+#ifdef TEST_RETURN_STACK_PTR
+void * stack_prev, * stack_next;
+asm volatile("mov %%rsp, %0\n" : "=m" (stack_prev) : : "memory" );
+#endif
 #ifndef STRICT_PTHREAD_GLIBC
   ret = (long)
     ((backend_args *)args)->cfunc(((backend_args *) args)->user);
 #else
   ret = (long)
     ((struct backend *)args)->start_routine(((struct backend *) args)->arg);
-#endif  
+#endif
+#ifdef TEST_RETURN_STACK_PTR
+asm volatile("mov %%rsp, %0\n" : "=m" (stack_next) : : "memory" );
+if ( stack_prev != stack_next )
+  printf("stack prev %p next %p\n", stack_prev, stack_next);
+#endif
 
 #ifdef DUMP_BACKEND
   PRINTF("%s: TID %lu barg %p carg %p bfunc %p ret %d\n",
