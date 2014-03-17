@@ -163,7 +163,8 @@ static inline void dump_my_malloc_trace() {}
 /* While there is no such syscall.  */
 //#define __exit_thread_inline(val) \
 //  asm volatile ("syscall" :: "a" (__NR_exit), "D" (val))
-static inline unsigned long clone_exit (int ret)
+//Antonio: I removed inline
+static unsigned long clone_exit (int ret)
 {
   unsigned long _ret;
   __asm__ __volatile__ ("syscall\n"
@@ -187,9 +188,10 @@ do { \
 */
 
 #define __GET_FS(address) \
-  syscall(__NR_arch_prctl, ARCH_GET_FS, &(address)); \
+  syscall(__NR_arch_prctl, ARCH_GET_FS, &(address));
 
-static inline unsigned long __set_fs (void * address)
+//Antonio: I removed inline in order to rbx, rbp to be saved
+static unsigned long __set_fs (void * address)
 {
     int _result;
     /* It is a simple syscall to set the %fs value for the thread.  */
@@ -244,6 +246,7 @@ if (cpusetsize > __kernel_cpumask_size)
 #ifdef USE_SYSCALL_SETAFFINITY
   int result = syscall (__NR_sched_setaffinity, pid, cpusetsize, cpuset);
 #else  
+#warning "THIS IS NOT SAFE"
   unsigned long result = 0;
   __asm__ __volatile__ ("syscall\n"
 			: "=a" (result)
