@@ -307,6 +307,15 @@ typedef union dtv
 } dtv_t;
 // todo allocate_dtv from /gnu/glibc/elf/dl-tls.c
 
+//from glibc/nptl/sysdeps/pthread/list.h
+/* Basic type for the double-link list.  */
+typedef struct list_head
+{
+  struct list_head *next;
+  struct list_head *prev;
+} list_t;
+
+
 typedef struct
 {
   void *tcb;		/* Pointer to the TCB.  Not necessarily the
@@ -344,6 +353,9 @@ typedef struct
 //in struct pthread
 struct backend {
   tcbhead_t header; // header is the first field in any case
+  
+  /* This descriptor's link on the `stack_used' or `__stack_user' list.  */
+  list_t list;
   
   /* Thread ID */
   pid_t tid;

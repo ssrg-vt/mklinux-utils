@@ -125,6 +125,7 @@ void backend_exit (void)
 */
 
   cthread_restore(saved_selector);
+  //NOTE getpid, despite we are not using nptl it is accessing the pid field in the TLS (nptl specific)
   printf("%s: [main %ld] exit_call\n", __func__, (long)getpid());
 
 #ifdef SHOW_PROFILING
