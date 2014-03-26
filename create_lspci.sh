@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# copyright Antonio Barbalace, SSRG, VT, 2013
-# copyright Phil Wilshire, 2013
+# Copyright 2013-2014 Antonio Barbalace
+# Copyright 2013 Phil Wilshire
 # lspci -n | awk ' { print   ":b" '} | grep -v "^06" | cut -d ':' -f2,3,4 | sed 's/^/0x/' | sed 's/:/:0x/'
 
 # we black list PCI devices based on the class of the device

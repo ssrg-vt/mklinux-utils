@@ -1,19 +1,6 @@
 #!/bin/sh
 
-#configuration param
-LOG_SERIAL="ttyS0,115200"
-ARG_LOG="earlyprintk=$LOG_SERIAL console=$LOG_SERIAL"
-
-#configuration param
-LOG_LAPICTIMER="1000000"
-ARG_IRQ="acpi_irq_nobalance no_ipi_broadcast=1 lapic_timer=$LOG_LAPICTIMER"
-
-#configuration param
-#ARG_PCI="pci_dev_flags=0x8086:0x10c9:b,0x102b:0x0532:b,0x1002:0x5a10:b,0x1002:0x4390:b,0x1002:0x4396:b,0x1002:0x4397:b,0x1002:0x4398:b,0x1002:0x4399:b"
-_ARG_PCI=`./create_lspci.sh`
-ARG_PCI="pci_dev_flags=$_ARG_PCI"
-
-ARG_MISC="mklinux debug memmap=512k\$64k"
+# Copyright 2013-2014 Antonio Barbalace, SSRG VT
 
 isndigit ()
 {
@@ -23,6 +10,54 @@ isndigit ()
     *) return 1;;
   esac
 }
+
+numformat ()
+{
+  NUMFORMAT_RET=`echo $1 | awk '{ if ($1 < 1024) printf("%d\n", $1); else if ($1 < (1024*1024)) printf("%dk\n", $1/1024); else if ($1 < (1024*1024*1024)) printf("%dM\n", $1/(1024*1024)); else printf("%dG\n", $1/(1024*1024*1024)); }'`
+  return 0;
+}
+
+#configuration params - console
+LOG_SERIAL="ttyS0,115200"
+ARG_LOG="earlyprintk=$LOG_SERIAL console=$LOG_SERIAL"
+
+#configuration params - ACPI/APIC
+LOG_LAPICTIMER="1000000"
+ARG_IRQ="acpi_irq_nobalance no_ipi_broadcast=1 lapic_timer=$LOG_LAPICTIMER"
+
+#configuration params - pci devices
+#ARG_PCI="pci_dev_flags=0x8086:0x10c9:b,0x102b:0x0532:b,0x1002:0x5a10:b,0x1002:0x4390:b,0x1002:0x4396:b,0x1002:0x4397:b,0x1002:0x4398:b,0x1002:0x4399:b"
+_ARG_PCI=`./create_lspci.sh`
+if [ $? -ne 0 ]
+then
+  echo "$_ARG_PCI"
+  exit 1
+fi
+ARG_PCI="pci_dev_flags=$_ARG_PCI"
+
+#configuration params - low memory (1MB)
+TRAMPOLINE=`dmesg | sed -n '/trampoline/p' | sed 's/\(at \[[0-9a-fA-F]*\] \)\([0-9a-fA-F]*\) size [0-9]*/\2/' | awk '{print $NF}' | awk 'BEGIN {i=0x1000000;} { val=strtonum("0x"$1); if (val < i) i=val; } END {printf("%d\n", i);}'`
+if [ -z $TRAMPOLINE ]
+then
+  echo "error getting trampoline addresses"
+  exit 1
+fi
+LOW_ADDRESS=65536
+numformat $LOW_ADDRESS
+LOW_ADDRESS_VAL=$NUMFORMAT_RET
+if [ $LOW_ADDRESS -ge $TRAMPOLINE ]
+then
+  echo "error $LOW_ADDRESS > $TRAMPOLINE"
+  exit 1
+fi
+numformat `expr $TRAMPOLINE - $LOW_ADDRESS`
+DISALLOWED_RANGE=$NUMFORMAT_RET
+ARG_MEM="memmap=$DISALLOWED_RANGE\$$LOW_ADDRESS_VAL"
+
+#configuration params - others
+ARG_MISC="mklinux debug"
+
+###############################################################################
 
 EXPECTED_ARGUMENTS=1
 E_BADARGS=65
@@ -38,11 +73,12 @@ then
 fi
 
 RET=`./mpart > mpart_map`
-
 ARG_PART=`cat mpart_map | grep "present_mask=$1[ -]"`
 if [ $? -ne 0 ]
 then
-  exit 0
+  echo "mpart failed"
+  exit 1
 fi
 
-echo $ARG_LOG $ARG_IRQ $ARG_PCI $ARG_MISC $ARG_PART
+echo $ARG_LOG $ARG_IRQ $ARG_PCI $ARG_MISC $ARG_PART $ARG_MEM
+exit 0
