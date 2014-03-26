@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# Copyright 2013-2014 Antonio Barbalace, SSRG VT
+
 FILE_PARAMS="boot_args_"
 FILE_ARGS=".args"
 FILE_PARAM=".param"
@@ -11,6 +13,11 @@ for CPU in $CPUS
 do
 
   ARGS=`./create_bootargs.sh $CPU`
+  if [ $? -ne 0 ]
+  then
+    echo $ARGS
+    exit 1
+  fi
 
 if [ -n "$ARGS" ] 
 then 
