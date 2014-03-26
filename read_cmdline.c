@@ -14,8 +14,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "bootparam.h"
-#include "popcorn.h"
+#include "lib/bootparam.h"
+#include "lib/popcorn.h"
 
 #define CMDLINE_SIZE 2048
 

@@ -2,11 +2,11 @@
 
 LIB = popcorn.o
 
-all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore mpart
+all: dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore mpart heartbeat getcpu
 
 
-$(LIB): popcorn.c
-	$(CC) $(CC_FLAGS) -c popcorn.c
+$(LIB): lib/popcorn.c
+	$(CC) $(CC_FLAGS) -c lib/popcorn.c
 
 dump_shdr: dump_shdr.c $(LIB)
 	$(CC) $(CC_FLAGS) -o $@ $(LIB) dump_shdr.c
@@ -32,9 +32,14 @@ tunnel_shm: tunnel_shm.c
 kcore: kcore.c
 	$(CC) $(CC_FLAGS) -o $@ kcore.c 
 
+heartbeat: heartbeat.c
+	$(CC) $(CC_FLAGS) -o $@ heartbeat.c 
+
+getcpu: getcpu.c
+	$(CC) $(CC_FLAGS) -o $@ getcpu.c 
 
 .PHONY: clean
 
 clean:
-	rm -f *.o dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore
+	rm -f *.o dump_shdr rd_cmdline wr_cmdline copy_ramdisk mpart tunnel tunnel_shm kcore heartbeat getcpu
 

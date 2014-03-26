@@ -13,8 +13,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "bootparam.h"
-#include "popcorn.h"
+#include "lib/bootparam.h"
+#include "lib/popcorn.h"
 
 int main(int argc, char *argv[])
 {
