@@ -4,6 +4,14 @@ VTY_ADDR=0x1ffc000000
 TUN_ADDR=0x1fec000000 # gigi
 #TUN_ADDR=0x7a0000000 # phil
 #TUN_ADDR=0xfbc000000 # found
+
+TUNNEL_ADDR=`dmesg | sed -n '/virtualTTY:[ ]*cpu [0-9]*,[ ]*phys /p' | sed 's/ phys 0x[0-9a-f]*-\(0x[0-9a-f]*\)/ \1/' | awk '{print $NF}'`
+if [ ! -z $TUNNEL_ADDR ]
+then
+  echo "fixing TUN_ADDR from $TUN_ADDR to $TUNNEL_ADDR"
+  TUN_ADDR=$TUNNEL_ADDR
+fi
+
 REPRESENTATIVE=`cat /proc/cpuinfo | grep processor | awk '{print $3}' | head -n 1`
 TUN_CPU=$(( $REPRESENTATIVE + 1 ))
 echo tun_addr = $TUN_ADDR tun_cpu = $TUN_CPU 

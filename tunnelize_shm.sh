@@ -10,9 +10,9 @@ echo $TUN_ADDR
 
 NICE="nice -n 20"
 TUNNEL=""
-[ -x "/home/${USER}/mklinux/mklinux-utils/shmtunnel" ] && TUNNEL="/home/${USER}/mklinux/mklinux-utils/shmtunnel"
-[ -x "./shmtunnel" ] && TUNNEL="./shmtunnel"
-which shmtunnel && TUNNEL="shmtunnel"
+[ -x "/home/${USER}/mklinux/mklinux-utils/tunnel_shm" ] && TUNNEL="/home/${USER}/mklinux/mklinux-utils/tunnel_shm"
+[ -x "./tunnel_shm" ] && TUNNEL="./tunnel_shm"
+which tunnel_shm && TUNNEL="tunnel_shm"
 
 $NICE $TUNNEL $TUN_ADDR $REPRESENTATIVE &
 sleep 2
