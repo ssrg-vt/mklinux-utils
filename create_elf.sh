@@ -7,7 +7,7 @@
 # argument is a vmlinux image (kernel's root source directory)
 
 # check the argument si not null
-if [ -z $1 ]
+if [ -z "$1" ]
 then
   echo "error. specifiy vmlinux image (uncompressed bzImage)"
   exit 1
