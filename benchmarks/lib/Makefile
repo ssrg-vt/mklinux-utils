@@ -27,6 +27,7 @@ tests: cthread.o
 	$(CC) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
 	$(CC) $(CFLAGS) -o test-cthread4 tst-cthread4.c $^
 	$(CC) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
+	$(CC) $(CFLAGS) -o test-synchmalloc tst-synchmalloc.c $^
 
 clean:
 	rm -f *.o libbomp.a libpomp.a test-*
