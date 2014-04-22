@@ -604,17 +604,26 @@ int l;
 // clustered around the nodes
 int clusteredcpu_on_nodes ( numa_node * list)
 {
-	//do the partition per cluster
+
+  #define COM_RESERVOIR  
+#ifdef COM_RESERVOIR
+#define MACH_64CORE_RESERV 0x70000000
+  long long reserved_com = (0x40 << 20) + MACH_64CORE_RESERV; // 64MB for application communication (Arijit)
+#endif
+    
+  
+  //do the partition per cluster
 	// instead of asking the cluster size (that can be done in the future if required..)
 	// we just need to get the cpu per node and cluster on them,
 
-	long long reserved_cap = (0x10 << 20);   //use 16MB reservation at the beginning
+	long long reserved_cap = (0x1 << 20);   //use 16MB reservation at the beginning
 
 	// 512 MB
 #define BEN_ALIGNMENT 0x20000000
 #ifdef BEN_ALIGNMENT
 	printf ("CLUSTERED Ben ALIGNMENT memmap=x@ALIGNED buond %lld\n", (long long) BEN_ALIGNMENT);
 #endif
+	printf("vty_offset not fully supported: NOT ALL CLUSTERS WILL WORK\n");
 	printf("##### %s #####\n", __func__);
 
 	// algorithm is: if over 16MB
@@ -632,17 +641,22 @@ int clusteredcpu_on_nodes ( numa_node * list)
 		long long alignedchunk =  chunk & ~RESOLUTION_MASK;
 //		long long diff = size -new_total;
 		long long start = list[i].start;
-/*if (start < reserved_cap) { // include reserved cap
-	printf ("present_mask=%d-%d mem=%ldM\n",
+		
+#ifdef COM_RESERVOIR
+	printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
+#endif
+if (start < reserved_cap) { // include reserved cap
+	printf ("present_mask=%d-%d memmap=%ldM@%ldM mem=%ldM\n",
 			id_base, id_base + (cpu_num -1),
+			(unsigned long)alignedchunk >> 20, (unsigned long)start >> 20,
 			(unsigned long)(alignedchunk) >> 20);
-} else { // TODO
-*/		printf ("present_mask=%d-%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
+} else {
+		printf ("present_mask=%d-%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
 				id_base, id_base + (cpu_num -1),
 				(unsigned long)alignedchunk >> 20, (unsigned long)start >> 20,
 				(unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
 				(unsigned long)(start + alignedchunk) >> 20);
-//}
+}
 
 		id_base += cpu_num;
 	}
