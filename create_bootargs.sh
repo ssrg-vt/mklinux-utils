@@ -78,7 +78,7 @@ if isndigit $1
 then
   exit $E_BADARGS
 fi
-
+#echo SEARCHING FOR $1
 RET=`./mpart > mpart_map`
 ARG_PART=`cat mpart_map | grep "present_mask=$1[ -]"`
 if [ $? -ne 0 ]
