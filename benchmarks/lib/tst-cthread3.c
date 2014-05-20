@@ -25,6 +25,7 @@
 
 #define SLEEP_FACT 1000000
 #define _sleep(a) { int i; long aa=a; long bb=-3; for (i=0; i<(a*SLEEP_FACT); i++) aa += (bb + a);}
+#define _sleep sleep
 
 void * fun(void * arg)
 {
