@@ -1,0 +1,12 @@
+
+STEPS:
+1) make clean
+2) make
+
+3) a) To check mutex	            : ./mut <threads> <rounds> <cpu>
+   b) To check bar 		    : ./bar <threads> <rounds> <cpu>
+   c) To check condition wait/signal: ./cond <threads> <rounds> <cpu>
+
+Note:
+This is a initial version of glibc test suite.
+Need to automate by scrpits.
