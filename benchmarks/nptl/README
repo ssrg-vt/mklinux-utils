@@ -7,6 +7,9 @@ STEPS:
    b) To check bar 		    : ./bar <threads> <rounds> <cpu>
    c) To check condition wait/signal: ./cond <threads> <rounds> <cpu>
 
+4) If you want to run test script, copy bar cond mut executables to bin
+and execute glibc.sh [See usage in the file]
+
 Note:
 This is a initial version of glibc test suite.
 Need to automate by scrpits.
