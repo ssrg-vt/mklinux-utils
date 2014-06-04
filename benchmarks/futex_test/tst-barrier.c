@@ -1,12 +1,15 @@
 #define _GNU_SOURCE
 #include<stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include<stdint.h>
 #include "tst-barrier.h"
 
 static inline uint64_t rdtsc(void)
 {
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
-    return ((uint64_t)edx << 32) | eax;
+    return ((uint64_t) edx << 32) | eax;
 }
 
 
