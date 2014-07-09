@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
     printf("CPU_COUNT %d\n", CPU_COUNT(&cpu_mask));
     pcpu = (char*) &cpu_mask;
     for (i=0; i< sizeof(cpu_set_t); i++) {
-        printf("%x", (unsigned int)pcpu[i]);
+        printf("%.02x", ((unsigned int)pcpu[i] & 0xFF));
         if (!((i+1) % 4))
             printf(",");
     }
