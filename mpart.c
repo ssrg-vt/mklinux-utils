@@ -459,7 +459,7 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
   
 #define COM_RESERVOIR  
 #ifdef COM_RESERVOIR
-#define MACH_64CORE_RESERV 0x70000000
+#define MACH_64CORE_RESERV 0x00000000
   long long reserved_com = (0x40 << 20) + MACH_64CORE_RESERV; // 64MB for application communication (Arijit)
 #endif
     
