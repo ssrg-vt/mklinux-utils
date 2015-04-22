@@ -26,7 +26,7 @@
 #include <sched.h>
 #include<syscall.h>
 #include "tst-mutex.h"
-
+#include <stdint.h>
 static pthread_mutex_t m;
 static pthread_barrier_t b;
 
@@ -122,6 +122,9 @@ int
 mutex3 (int cp)
 {
   int cpu =1;
+ uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
 
   if(cp > 0) cpu = cp;
   
@@ -260,6 +263,9 @@ mutex3 (int cp)
       puts ("mutexattr_destroy failed");
       return 1;
     }
+
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
 
   return 0;
 }

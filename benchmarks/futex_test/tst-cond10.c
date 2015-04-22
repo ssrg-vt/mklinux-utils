@@ -25,8 +25,8 @@
 #include<syscall.h>
 
 #include "tst-cond.h"
-
-static int N= 8;
+#include <stdint.h>
+static int N= 2;
 static int  ROUNDS= 4;
 
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -38,11 +38,12 @@ static pthread_barrier_t b2;
 static void *
 tf (void *p)
 {
-int cpu=(int)p;
- printf ("child %d: lock cpu{%lu} \n",syscall(SYS_gettid),(cpu+1));
+int cpu=(int)p+1;
+ printf ("child %d: lock cpu{%lu} \n",syscall(SYS_gettid),(cpu));
   int __ret;
+  int err=0;
   int cpu_src = sched_getcpu();
-  int cpu_dest= (cpu+1);
+  int cpu_dest= (cpu);
   cpu_set_t cpu_mask;
   CPU_ZERO(&cpu_mask);
   CPU_SET(cpu_dest, &cpu_mask);
@@ -50,42 +51,42 @@ int cpu=(int)p;
 
   if (pthread_mutex_lock (&mut) != 0)
     {
-      puts ("child: 1st mutex_lock failed");
-      exit (1);
+     return NULL;
     }
 
-  int e = pthread_barrier_wait (&b2);
-  if (e != 0 && e != PTHREAD_BARRIER_SERIAL_THREAD)
+   err = pthread_barrier_wait (&b2);
+  if (err != 0 && err != PTHREAD_BARRIER_SERIAL_THREAD)
     {
-      puts ("child: 1st barrier_wait failed");
-      exit (1);
+     return NULL;
     }
 
   if (pthread_cond_wait (&cond, &mut) != 0)
     {
-      puts ("child: cond_wait failed");
-      exit (1);
+     return NULL;
     }
 
   if (pthread_mutex_unlock (&mut) != 0)
     {
-      puts ("child: mutex_unlock failed");
-      exit (1);
+     return NULL;
     }
 
-  e = pthread_barrier_wait (&bN1);
-  if (e != 0 && e != PTHREAD_BARRIER_SERIAL_THREAD)
+  err = pthread_barrier_wait (&bN1);
+  if (err != 0 && err != PTHREAD_BARRIER_SERIAL_THREAD)
     {
-      puts ("child: 2nd barrier_wait failed");
-      exit (1);
+     return NULL;
     }
-
+ 
   return NULL;
 }
 
 
 int cond10 (int th, int rd)
 {
+
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
+
  if(th>0) N = th;
 
  if(rd>0) ROUNDS = rd;
@@ -187,6 +188,9 @@ int cond10 (int th, int rd)
       return 1;
     }
 
+
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

@@ -1,10 +1,8 @@
-
-/*
- * Copyright (c) 2013, 2014, SSRG VT
- * Author: Antonio Barbalace
- * 
- * Rewriting to run tests on Linux, Popcorn and Barrelfish.
+/**
+ * \file
+ * \brief Lock scalability benchmark.
  */
+
 /*
  * Copyright (c) 2007, 2008, 2009, ETH Zurich.
  * All rights reserved.
@@ -15,21 +13,28 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <omp.h>
+#include <stdlib.h>
+#include "../include/barrelfish/threads.h"
+//#include "../lib/barrelfish/threads.h"
 
-// Use spinlocks if defined, mutexes otherwise
-#define SPINLOCKS
+// Use spinlockts if defined, mutexes otherwise
+//#undef SPINLOCKS
+//#define SPINLOCKS
+//#define POSIX 1
 
 #ifdef POSIX
 #include <pthread.h>
 #include <stdint.h>
+#endif
 
-#ifdef SPINLOCKS
-/** \brief spinlock */
-typedef volatile uint64_t spinlock_t __attribute__ ((aligned(64)));
+#define N 1000000
 
-static inline void acquire_spinlock(spinlock_t * volatile lock)
+#ifdef SPINLOCKS 
+/** \brief spinlockt */
+typedef volatile uint64_t spinlockt_t __attribute__ ((aligned(64)));
+
+static inline void _acquire_spinlockt(spinlockt_t * volatile lock)
 {
     __asm__ __volatile__(
                          "0:\n\t"
@@ -40,7 +45,7 @@ static inline void acquire_spinlock(spinlock_t * volatile lock)
                         );
 }
 
-static inline void release_spinlock(spinlock_t * volatile lock)
+static inline void _release_spinlockt(spinlockt_t * volatile lock)
 {
     *lock = 0;
 }
@@ -52,56 +57,52 @@ static inline uint64_t rdtsc(void)
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
     return (edx << 32) | eax;
 }
-#endif
-
-#define N 1000000
 
 int main(int argc, char *argv[])
 {
         int i=0;
+	int threads = 4;
+	if(argv[1])
+	  threads = atoi(argv[1]);
 
-#ifndef POSIX	
 	bomp_custom_init();
-#endif
-	assert(argc == 2);
-        omp_set_num_threads(atoi(argv[1]));
+        omp_set_num_threads(threads);
 
 #ifndef POSIX
 #ifndef SPINLOCKS
         static struct thread_mutex lock = THREAD_MUTEX_INITIALIZER;
+	printf("m1\n");
 #else
-        static spinlock_t lock = 0;
+        static spinlockt_t lock = 0;
 #endif
 #else
 #ifdef SPINLOCKS
-        static spinlock_t lock = 0;
+        static spinlockt_t lock = 0;
 #else
         static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	printf("m2\n");
 #endif
 #endif
 
         uint64_t begin = rdtsc();
 
-#pragma omp parallel 
+        #pragma omp parallel 
         {
 #pragma omp for private(i)
 		   for(i=0;i<N;i++)
 		   {
 #ifdef SPINLOCKS
-                       acquire_spinlock(&lock);
-                       release_spinlock(&lock);
+                       _acquire_spinlockt(&lock);
+                       _release_spinlockt(&lock);
 #else
-                       thread_mutex_lock(&lock);
-                       thread_mutex_unlock(&lock);
+                       pthread_mutex_lock(&lock);
+                       pthread_mutex_unlock(&lock);
 #endif
 		   }
 	}
 
         uint64_t end = rdtsc();
+
         printf("took %lu\n", end - begin);
-	
-#ifndef POSIX
-	bomp_custom_exit();
-#endif	
 }
 

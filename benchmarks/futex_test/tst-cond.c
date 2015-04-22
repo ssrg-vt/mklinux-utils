@@ -7,7 +7,7 @@
 #include "tst-cond.h"
 
 
-static inline uint64_t rdtsc(void)
+uint64_t rdtsc(void)
 {
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
@@ -72,25 +72,29 @@ switch(s){
 		start = rdtsc();
 		cond14(cpu);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 16:
 		printf("exec cond16 thread{%d}\n",thread);
 		start = rdtsc();
 		cond16(thread);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 18:
 		printf("exec cond18 thread{%d}\n",thread);
 		start = rdtsc();
 		cond18(thread);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 22:
 		printf("exec cond22 cpu{%d}\n",cpu);
 		start = rdtsc();
 		cond22(cpu);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 
 	
 	default:

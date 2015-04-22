@@ -25,12 +25,13 @@
 #include <string.h>
 #include <syscall.h>
 #include "tst-barrier.h"
+#include <signal.h>
 //#include "switch_cpu.h"
+#include<stdint.h>
 
+#define  NTHREADS 2
 
-#define NTHREADS 12
-
-static int ROUNDS= 5;
+static int ROUNDS= 20;
 
 static pthread_barrier_t barriers[NTHREADS];
 
@@ -38,7 +39,11 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static int counters[NTHREADS];
 static int serial[NTHREADS];
 
-
+void sig_handler(int signo)
+{
+  if (signo == SIGSEGV)
+    printf("received SIGINT\n");
+}
 static inline int switch_cpu2(int cpuid)
 {
 	int __ret;
@@ -47,6 +52,8 @@ static inline int switch_cpu2(int cpuid)
 
 	if(cpuid != cpu_src)
 		     cpu_dest = cpuid;
+	else 
+		return 0;
 
 	cpu_set_t cpu_mask;
 	CPU_ZERO(&cpu_mask);
@@ -68,6 +75,10 @@ worker (void *arg)
   int i;
 
    printf ("child %d: lock cpu{%lu} \n",syscall(SYS_gettid),nr);
+
+  if (signal(SIGSEGV, sig_handler) == SIG_ERR)
+        printf("\ncan't catch SIGUSR1\n");
+
 
   switch_cpu2(nr);
 
@@ -102,8 +113,6 @@ worker (void *arg)
 	  /* Test the result.  */
 	  if (nr == 0 && counters[j] != j + 1)
 	    {
-	      printf ("barrier in round %d released but count is %d\n",
-		      j, counters[j]);
 	      result = (void *) 1;
 	    }
 
@@ -111,8 +120,6 @@ worker (void *arg)
 	    {
 	      if (retval != PTHREAD_BARRIER_SERIAL_THREAD)
 		{
-		  printf ("thread %d in round %d has nonzero return value != PTHREAD_BARRIER_SERIAL_THREAD\n",
-			  nr, j);
 		  result = (void *) 1;
 		}
 	      else
@@ -124,12 +131,11 @@ worker (void *arg)
 	    }
 
 	  /* Wait for the rest again.  */
-	  retval = pthread_barrier_wait (&barriers[j]);
+	   pthread_barrier_wait (&barriers[j]);
 
 	  /* Now we can check whether exactly one thread was serializing.  */
 	  if (nr == 0 && serial[j] != 1)
 	    {
-	      printf ("not exactly one serial thread in round %d\n", j);
 	      result = (void *) 1;
 	    }
 	}
@@ -143,6 +149,9 @@ worker (void *arg)
 int
 barrier3 (int thr, int rd)
 {
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
 // if(thr > 0) NTHREADS = thr;
 
  if(rd > 0) ROUNDS =rd;
@@ -187,6 +196,8 @@ printf("&bar =%p \n",barriers);
   if (result == 0)
     puts ("all OK");
 
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return result;
 }
 

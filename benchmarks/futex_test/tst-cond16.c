@@ -26,23 +26,28 @@
 #include<syscall.h>
 
 #include "tst-cond.h"
+#include <stdint.h>
+
+#undef UNLOCK_AFTER_BROADCAST
 
 pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 bool n, exiting;
 FILE *f;
 int count;
+volatile int _counter = 0;
 
 void *
 tf (void *dummy)
 {
   bool loop = true;
-  int cpu = (int)dummy;
-   printf ("child %lu: lock cpu{%lu} \n",syscall(SYS_gettid),cpu+1);
+  int y = 0;
+  int cpu = (int)dummy+1;
+   printf ("child %lu: lock cpu{%lu} \n",syscall(SYS_gettid),cpu);
 
    int __ret;
    int cpu_src = sched_getcpu();
-   int cpu_dest= cpu+1;
+   int cpu_dest= cpu;
    cpu_set_t cpu_mask;
    CPU_ZERO(&cpu_mask);
   CPU_SET(cpu_dest, &cpu_mask);
@@ -58,7 +63,7 @@ tf (void *dummy)
       n = true;
       pthread_mutex_unlock (&lock);
 
-      //fputs (".", f);
+       _counter++;
 
       pthread_mutex_lock (&lock);
       n = false;
@@ -78,6 +83,9 @@ tf (void *dummy)
 
 int cond16 (int t)
 {
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
 
   f = fopen ("/dev/null", "w");
   if (f == NULL)
@@ -111,7 +119,10 @@ int cond16 (int t)
   for (i = 0; i < count; ++i)
     pthread_join (th[i], NULL);
 
+  printf("Counter is {%d} \n",_counter);
   fclose (f);
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

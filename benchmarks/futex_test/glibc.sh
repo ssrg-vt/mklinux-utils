@@ -11,6 +11,18 @@ then
 	echo " Usage ./glibc.sh <cpu_core/threads> <round>"
 fi
 
+echo " "
+echo "#############Run Signal Tests######################"
+echo " "
+echo "------------Executing tst-signal6--cpu{$var}-----------"
+/bin/sig 6 0 0 $var
+sleep 0.5
+echo "  "
+echo "------------Executing tst-signal7--cpu{$var}-----------"
+/bin/sig 7 0 0 $var
+sleep 0.5
+echo " " 
+
 
 
 echo " "
@@ -27,10 +39,10 @@ do
     /bin/mut 3 0 0 $var
     sleep 0.5
     echo " " 
-   # echo "------------Executing tst-mutex8--cpu{$var}-----------"
-    #/bin/mut 8 0 0 $var
-   # sleep 0.5
-   # echo " "
+    echo "------------Executing tst-mutex8--cpu{$var}-----------"
+    /bin/mut 8 0 0 $var
+    sleep 0.5
+    echo " "
 done
 
 echo "+++++THREAD COUNT++++++++++++"
@@ -101,10 +113,10 @@ do
 		sleep 0.5
 		echo "  "
 	done
-	#echo "------------Executing tst-cond7-----------------"
-	#/bin/cond 7 $var 0 0
-	#sleep 0.5
-	#echo "  "
+	echo "------------Executing tst-cond7-----------------"
+	/bin/cond 7 $var 0 0
+	sleep 0.5
+	echo "  "
 done
 
 

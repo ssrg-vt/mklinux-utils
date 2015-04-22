@@ -25,11 +25,12 @@
 #include <syscall.h>
 #include "tst-barrier.h"
 //#include "switch_cpu.h"
+#include<stdint.h>
 
 static pthread_barrier_t b1;
 static pthread_barrier_t b2;
 
-static int N= 8;
+static int N= 2;
 
 
 static inline int switchcpu(int cpuid)
@@ -41,6 +42,8 @@ static inline int switchcpu(int cpuid)
 
 	if(cpuid != cpu_src)
 		     cpu_dest = cpuid;
+        else
+		    return 0;
 
 	cpu_set_t cpu_mask;
 	CPU_ZERO(&cpu_mask);
@@ -96,6 +99,10 @@ tf (void *arg)
 int
 barrier4 (int thr)
 {
+ 
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   if(thr > 0) N = thr;
   pthread_attr_t at;
   int cnt;
@@ -148,7 +155,8 @@ barrier4 (int thr)
 	puts ("pthread_join failed");
 	return 1;
       }
-
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

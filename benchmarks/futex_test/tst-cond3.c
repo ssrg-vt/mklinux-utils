@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include<syscall.h>
 #include "tst-cond.h"
+#include <stdint.h>
 /* Note that this test requires more than the standard.  It is
    required that there are no spurious wakeups if only more readers
    are added.  This is a reasonable demand.  */
@@ -67,7 +68,6 @@ tf (void *arg)
   pthread_cond_wait (&cond, &mut);
 
   /* We should never get here.  */
-//  exit (1);
 
   return NULL;
 }
@@ -77,6 +77,9 @@ int
 cond3 (int t)
 {
   if(t!=0) N=t;
+  uint64_t start = 0;
+  uint64_t end = 0;
+  start = rdtsc();
 
   int err;
   int i;
@@ -119,6 +122,8 @@ cond3 (int t)
   pthread_cond_wait (&cond, &mut);
 
   puts ("cond_wait returned");
+  end= rdtsc();
+  
   return 1;
 }
 

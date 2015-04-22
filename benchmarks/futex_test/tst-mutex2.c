@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include<syscall.h>
 #include "tst-mutex.h"
-
+#include <stdint.h>
 static pthread_mutex_t m;
 static pthread_barrier_t b;
 
@@ -115,6 +115,9 @@ int
 mutex2 (int cp)
 {
   int cpu = 1;
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   
   if(cp >0) cpu = cp;
   
@@ -126,7 +129,7 @@ mutex2 (int cp)
       puts ("mutexattr_init failed");
       return 1;
     }
-   printf("b{%p} m {%p} \n",&m,&b);
+   printf("b{%p} m {%p} sm{%d}  sb{%d}\n",&m,&b,sizeof(m),sizeof(b));
   if (pthread_mutexattr_settype (&a, PTHREAD_MUTEX_ERRORCHECK) != 0)
     {
       puts ("mutexattr_settype failed");
@@ -154,7 +157,6 @@ mutex2 (int cp)
       puts ("mutex_init failed");
       return 1;
     }
-
   if (pthread_barrier_init (&b, NULL, 2) != 0)
     {
       puts ("barrier_init failed");
@@ -253,7 +255,8 @@ mutex2 (int cp)
       puts ("mutexattr_destroy failed");
       return 1;
     }
-
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

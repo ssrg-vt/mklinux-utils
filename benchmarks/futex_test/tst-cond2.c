@@ -25,6 +25,9 @@
 #include <syscall.h>
 #include<string.h>
 #include "tst-cond.h"
+#include<unistd.h>
+#include <sys/types.h>
+#include <stdint.h>
 
 static pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -48,7 +51,7 @@ static void *
 tf (void *a)
 {
   int i = (long int) a;
-  int err;
+  int err=0;
   int cpu = i;
 
   printf ("child %d: lock cpu{%d} pid{%d} \n", i,cpu+1,syscall(SYS_gettid));
@@ -65,33 +68,33 @@ CPU_SET(cpu_dest, &cpu_mask);
 
  __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
 
-  err = pthread_mutex_lock (&mut);
+   pthread_mutex_lock (&mut);
   if (err != 0)
     error (EXIT_FAILURE, err, "locking in child failed");
 
-//  printf ("child %d: sync\n", i);
-//printf("bar (left){%u} init_count{%u}\n",((struct pthread_barrier *)&bar)->left,((struct pthread_barrier *)&bar)->init_count);
 
   int e = pthread_barrier_wait (&bar);
   if (e != 0 && e != PTHREAD_BARRIER_SERIAL_THREAD)
     {
-    //  puts ("child: barrier_wait failed");
-      exit (1);
+	return NULL;
+      //exit (1);
     }
 
   //printf ("child %d: wait\n", i);
 
-  err = pthread_cond_wait (&cond, &mut);
-  if (err != 0)
-    error (EXIT_FAILURE, err, "child %d: failed to wait", i);
+  err =  pthread_cond_wait (&cond, &mut);
+  if (err != 0){
+   // error (EXIT_FAILURE, err, "child %d: failed to wait", i);
+   return NULL; 
+   }
 
  // printf ("child %d: woken up\n", i);
 
   err = pthread_mutex_unlock (&mut);
-  if (err != 0)
-    error (EXIT_FAILURE, err, "child %d: unlock[2] failed", i);
-
-  //printf ("child %d: done\n", i);
+  if (err != 0){
+   // error (EXIT_FAILURE, err, "child %d: unlock[2] failed", i);
+  return NULL; 
+  }
 
   return NULL;
 }
@@ -106,7 +109,9 @@ int cond2 (int t)
   pthread_t th[N];
   int i;
   int err;
-
+  uint64_t start = 0;
+  uint64_t end = 0;
+  start = rdtsc();
   printf ("&cond = %p\n&mut = %p \n&bar = %p \n", &cond, &mut,&bar);
   printf ("sizeofmystruct{%d} sizeof(pthread_barrier_t{%d}\n",sizeof(mystruct),sizeof(pthread_barrier_t));
   if (pthread_barrier_init (&bar, NULL, 2) != 0)
@@ -187,7 +192,9 @@ int cond2 (int t)
     }
 
   puts ("done");
+  end = rdtsc();
 
+//  printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #include "tst-cond.h"
-
+#include <stdint.h>
 
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t mut = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -47,33 +47,26 @@ tf (void *p)
 
   if (pthread_mutex_lock (&mut) != 0)
     {
-      printf ("%s: 1st mutex_lock failed\n", __func__);
       exit (1);
     }
   if (pthread_mutex_lock (&mut) != 0)
     {
-      printf ("%s: 2nd mutex_lock failed\n", __func__);
       exit (1);
     }
   if (pthread_mutex_lock (&mut) != 0)
     {
-      printf ("%s: 3rd mutex_lock failed\n", __func__);
       exit (1);
     }
 
   if (pthread_mutex_unlock (&mut2) != 0)
     {
-      printf ("%s: mutex_unlock failed\n", __func__);
       exit (1);
     }
 
   if (pthread_cond_wait (&cond, &mut) != 0)
     {
-      printf ("%s: cond_wait failed\n", __func__);
       exit (1);
     }
-
-  puts ("child: done");
 
   return NULL;
 }
@@ -81,6 +74,10 @@ tf (void *p)
 
  int cond14 (int cpu)
 {
+  
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   int c = 1;
   if(cpu>0)
 	c = cpu;
@@ -125,6 +122,8 @@ tf (void *p)
 
   puts ("done");
 
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

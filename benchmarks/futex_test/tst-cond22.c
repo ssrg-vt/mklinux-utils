@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <stdint.h>
 #include "tst-cond.h"
 
 
@@ -35,14 +35,14 @@ printf ("child %lu: lock cpu{} \n",1);
 
   if (pthread_mutex_lock (&m) != 0)
     {
-      printf ("%s: mutex_lock failed\n", __func__);
-      exit (1);
+      //exit (1);
+      return NULL;
     }
   int e = pthread_barrier_wait (&b);
   if (e != 0 && e != PTHREAD_BARRIER_SERIAL_THREAD)
     {
-      printf ("%s: barrier_wait failed\n", __func__);
-      exit (1);
+      //exit (1);
+      return NULL;
     }
   pthread_cleanup_push (cl, NULL);
   /* We have to loop here because the cancellation might come after
@@ -52,15 +52,15 @@ printf ("child %lu: lock cpu{} \n",1);
   do
     if (pthread_cond_wait (&c, &m) != 0)
       {
-	printf ("%s: cond_wait failed\n", __func__);
-	exit (1);
+	//exit (1);
+        return NULL;
       }
   while (arg == NULL);
   pthread_cleanup_pop (0);
   if (pthread_mutex_unlock (&m) != 0)
     {
-      printf ("%s: mutex_unlock failed\n", __func__);
-      exit (1);
+      //exit (1);
+      return NULL;
     }
   return NULL;
 }
@@ -68,6 +68,9 @@ printf ("child %lu: lock cpu{} \n",1);
 
  int cond22 (int cp)
 {
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   int status = 0;
   int cpu=1;
 
@@ -172,5 +175,7 @@ printf("b={%p} m={%p} c={%p} \n",&b,&m,&c);
 	  c.__data.__wakeup_seq, c.__data.__woken_seq, c.__data.__mutex,
 	  c.__data.__nwaiters, c.__data.__broadcast_seq);
 
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return status;
 }

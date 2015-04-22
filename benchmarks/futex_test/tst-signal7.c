@@ -18,13 +18,14 @@
    02111-1307 USA.  */
 
 #include <errno.h>
-#include <pthreadP.h>
 #include <signal.h>
 #include <stdio.h>
-
-
-static int
-do_test (void)
+#include "tst-signal.h"
+#include <sched.h>
+#define SIGCANCEL 32
+#define SIGSETXID 33
+int
+sig7 (int cpu)
 {
   int result = 0;
 
@@ -55,5 +56,3 @@ do_test (void)
   return result;
 }
 
-#define TEST_FUNCTION do_test ()
-#include "../test-skeleton.c"

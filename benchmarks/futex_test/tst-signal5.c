@@ -17,6 +17,7 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -26,31 +27,46 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
-
+#include "tst-signal.h"
 
 static sigset_t ss;
-
+static int parent_signal[32]={0};
+static int child_signal[32]={0};
 
 static void *
 tf (void *arg)
 {
+int i = (long int) arg;
+
   sigset_t ss2;
+
+
   if (pthread_sigmask (SIG_SETMASK, NULL, &ss2) != 0)
     {
       puts ("child: sigmask failed");
       exit (1);
     }
+int __ret;
+int cpu_src = sched_getcpu();
+int cpu_dest= i;
 
-  int i;
+cpu_set_t cpu_mask;
+CPU_ZERO(&cpu_mask);
+CPU_SET(cpu_dest, &cpu_mask);
+
+
+ __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
+
+
   for (i = 1; i < 32; ++i)
     if (sigismember (&ss, i) && ! sigismember (&ss2, i))
       {
-	printf ("signal %d set in parent mask, but not in child\n", i);
+	parent_signal[i]++;
 	exit (1);
       }
     else if (! sigismember (&ss, i) && sigismember (&ss2, i))
       {
-	printf ("signal %d set in child mask, but not in parent\n", i);
+	child_signal[i]++;
 	exit (1);
       }
 
@@ -58,9 +74,10 @@ tf (void *arg)
 }
 
 
-static int
-do_test (void)
+int
+sig5(int cpu)
 {
+  int i=0;
   sigemptyset (&ss);
   sigaddset (&ss, SIGUSR1);
   if (pthread_sigmask (SIG_SETMASK, &ss, NULL) != 0)
@@ -70,7 +87,7 @@ do_test (void)
     }
 
   pthread_t th;
-  if (pthread_create (&th, NULL, tf, NULL) != 0)
+  if (pthread_create (&th, NULL, tf, cpu) != 0)
     {
       puts ("1st create failed");
       exit (1);
@@ -82,6 +99,13 @@ do_test (void)
       puts ("1st join failed");
       exit (1);
     }
+  printf("Before setting signals\n");
+  for(i=0;i<32;i++){
+	printf("signal %d Parent %d child %d \n",i,parent_signal[i],child_signal[i]);
+	parent_signal[i]=0;
+	child_signal[i]=0;
+  }
+
 
   sigemptyset (&ss);
   sigaddset (&ss, SIGUSR2);
@@ -92,7 +116,7 @@ do_test (void)
       exit (1);
     }
 
-  if (pthread_create (&th, NULL, tf, NULL) != 0)
+  if (pthread_create (&th, NULL, tf, cpu) != 0)
     {
       puts ("2nd create failed");
       exit (1);
@@ -104,8 +128,9 @@ do_test (void)
       exit (1);
     }
 
+  for(i=0;i<32;i++){
+	printf("signal %d Parent %d child %d \n",i,parent_signal[i],child_signal[i]);
+  }
+
   return 0;
 }
-
-#define TEST_FUNCTION do_test ()
-#include "../test-skeleton.c"

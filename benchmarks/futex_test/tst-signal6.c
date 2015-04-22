@@ -17,20 +17,21 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-
+#include <sched.h>
 #define N 2
 static pthread_barrier_t bar;
 static struct
 {
   void *p;
   pthread_t s;
+  int used;
 } ti[N];
 static int sig1;
 
@@ -47,16 +48,17 @@ handler (int sig)
 	if ((uintptr_t) ti[i].p <= (uintptr_t) &self
 	    && (uintptr_t) ti[i].p + 2 * MINSIGSTKSZ > (uintptr_t) &self)
 	  {
-	    puts ("alt stack not used");
+//	    puts ("alt stack not used");
+	    ti[i].used = 5;
 	    exit (1);
 	  }
-
-	printf ("thread %zu used alt stack for signal %d\n", i, sig);
+	ti[i].used = 10;
+//	printf ("thread %zu used alt stack for signal %d\n", i, sig);
 
 	return;
       }
 
-  puts ("handler: thread not found");
+  //puts ("handler: thread not found");
   exit (1);
 }
 
@@ -64,12 +66,47 @@ handler (int sig)
 static void *
 tf (void *arg)
 {
+
+
+  
   size_t nr = (uintptr_t) arg;
   if (nr >= N)
     {
       puts ("wrong nr parameter");
       exit (1);
     }
+int __ret;
+int cpu_src = sched_getcpu();
+int cpu_dest= nr;
+
+cpu_set_t cpu_mask;
+CPU_ZERO(&cpu_mask);
+CPU_SET(cpu_dest, &cpu_mask);
+
+  void *p = malloc (2 * MINSIGSTKSZ);
+  if (p == NULL)
+    {
+      puts ("tf: malloc failed");
+      exit (1);
+    }
+
+  stack_t s;
+  s.ss_sp = p;
+  s.ss_size = 2 * MINSIGSTKSZ;
+  s.ss_flags = 0;
+  if (sigaltstack (&s, NULL) != 0)
+    {
+      //puts ("tf: sigaltstack failed");
+      exit (1);
+    }
+
+  ti[nr].p = p;
+  ti[nr].s = pthread_self ();
+  ti[nr].used  = 0;
+
+
+ __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
+
 
   sigset_t ss;
   sigemptyset (&ss);
@@ -87,26 +124,6 @@ tf (void *arg)
       exit (1);
     }
 
-  void *p = malloc (2 * MINSIGSTKSZ);
-  if (p == NULL)
-    {
-      puts ("tf: malloc failed");
-      exit (1);
-    }
-
-  stack_t s;
-  s.ss_sp = p;
-  s.ss_size = 2 * MINSIGSTKSZ;
-  s.ss_flags = 0;
-  if (sigaltstack (&s, NULL) != 0)
-    {
-      puts ("tf: sigaltstack failed");
-      exit (1);
-    }
-
-  ti[nr].p = p;
-  ti[nr].s = pthread_self ();
-
   pthread_barrier_wait (&bar);
 
   pthread_barrier_wait (&bar);
@@ -115,8 +132,8 @@ tf (void *arg)
 }
 
 
-static int
-do_test (void)
+int
+sig6 (int threads)
 {
   sig1 = SIGRTMIN;
   if (sig1 + N > SIGRTMAX)
@@ -174,19 +191,20 @@ do_test (void)
   kill (me, sig1 + N);
 
   /* Give the signals a chance to be worked on.  */
-  sleep (1);
+  sleep (4);
 
   pthread_barrier_wait (&bar);
 
-  for (i = 0; i < N; ++i)
+  for (i = 0; i < N; ++i){
     if (pthread_join (th[i], NULL) != 0)
       {
 	puts ("join failed");
 	return 1;
       }
+   printf("T %d Used ? %d",i,ti[i].used);
+   }
+ 
 
   return 0;
 }
 
-#define TEST_FUNCTION do_test ()
-#include "../test-skeleton.c"

@@ -28,6 +28,7 @@
 #include<syscall.h>
 
 #include "tst-mutex.h"
+#include <stdint.h>
 
 static pthread_mutex_t *m;
 static pthread_barrier_t b;
@@ -38,7 +39,6 @@ static bool done;
 static void
 cl (void *arg)
 {
-printf("cleanup\n");
   if (pthread_mutex_unlock (m) != 0)
     {
       puts ("cl: mutex_unlocked failed");
@@ -86,7 +86,6 @@ int nr = (int)arg;
     do
       if (pthread_cond_wait (&c, m) != 0)
 	{
-//	  puts ("tf: cond_wait failed");
 	  return (void *) 1l;
 	}
     while (! done);
@@ -94,19 +93,15 @@ int nr = (int)arg;
     do
       {
 	pthread_cleanup_push (cl, NULL);
-	printf("push\n");
 	if (pthread_cond_wait (&c, m) != 0)
 	  {
-	    puts ("tf: cond_wait failed");
 	    return (void *) 1l;
 	  }
-	printf("pop \n");
 	pthread_cleanup_pop (0);
       }
     while (! done);
   if (pthread_mutex_unlock (m) != 0)
     {
-//      puts ("tf: mutex_unlock failed");
       return (void *) 1l;
     }
 
@@ -334,6 +329,9 @@ static pthread_mutex_t mm;
 int
 mutex8 (int cp)
 {
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
 //  pthread_mutex_t mm;
   m = &mm;
   int cpu = 1;
@@ -394,6 +392,7 @@ mutex8 (int cp)
       puts ("2nd mutexattr_destroy failed");
       return 1;
     }
-
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return res;
 }

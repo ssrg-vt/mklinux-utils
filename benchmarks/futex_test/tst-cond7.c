@@ -28,7 +28,7 @@
 #include <syscall.h>
 
 #include "tst-cond.h"
-
+#include<stdint.h>
 
 typedef int _tid;
 typedef struct
@@ -59,12 +59,12 @@ tf (void *arg)
           return NULL; 
       }
 
-  printf ("child %d: lock cpu{%lu} \n",syscall(SYS_gettid),(cpu+1)%4);
+  printf ("child %d: lock cpu{%lu} \n",syscall(SYS_gettid),(cpu)%4);
 
-  switch(cpu+1);
+  //switch(cpu);
   int __ret;
   int cpu_src = sched_getcpu();
-  int cpu_dest= (cpu+1)%4;
+  int cpu_dest= (cpu)%4;
     cpu_set_t cpu_mask;
   CPU_ZERO(&cpu_mask);
   CPU_SET(cpu_dest, &cpu_mask);
@@ -74,7 +74,6 @@ tf (void *arg)
 
   if (pthread_mutex_lock (&t->lock) != 0)
     {
-      puts ("child: lock failed");
       return NULL;
     }
 
@@ -82,19 +81,16 @@ tf (void *arg)
 
   if (pthread_cond_signal (&t->cond) != 0)
     {
-      puts ("child: cond_signal failed");
       return NULL;
     }
 
   if (pthread_cond_wait (&t->cond, &t->lock) != 0)
     {
-      puts ("child: cond_wait failed");
       return NULL;
     }
 
   if (pthread_mutex_unlock (&t->lock) != 0)
     {
-      puts ("child: unlock failed");
       return NULL;
     }
 
@@ -105,6 +101,9 @@ static int N=8;
  int
 cond7 (int thr)
 {
+uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   int i;
   if(thr!=0) N=thr;
 
@@ -181,5 +180,7 @@ cond7 (int thr)
   for (i = 0; i < N; ++i)
     free (t[i]);
 
+end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }

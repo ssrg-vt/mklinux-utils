@@ -26,17 +26,19 @@
 #include <unistd.h>
 
 #include "tst-cond.h"
-
+#include <stdint.h>
 
 static pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 bool exiting;
 int fd, count, spins, nn;
 
+volatile int counter=0;
+
 static void *
 tf (void *id)
 {
- long cpu = (long) id;
+ long cpu = (long) id+1;
  printf ("child %lu: lock cpu{%lu} \n",cpu,(cpu));
 
  int __ret;
@@ -55,6 +57,7 @@ tf (void *id)
 	{
 	  if ((spins++ % 1000) == 0){
 	   // write (fd, ".", 1);
+	   counter++;
 	  }
 	  pthread_mutex_unlock (&lock);
 
@@ -89,14 +92,17 @@ tf (void *id)
 
 int cond18 (int t)
 {
-  fd = open ("/dev/null", O_WRONLY);
-  if (fd < 0)
+  uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
+//  fd = open ("/dev/null", O_WRONLY);
+  /*if (fd < 0)
     {
       printf ("couldn't open /dev/null, %m\n");
       return 1;
     }
-
-  count = 4;
+*/
+  count = 2;
   if (t>0)
     count = t;
 
@@ -121,7 +127,10 @@ int cond18 (int t)
   for (i = 0; i < count; ++i)
     pthread_join (th[i], NULL);
 
-  close (fd);
+  printf("Counter {%d} \n",counter);
+  //close (fd);
+ end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

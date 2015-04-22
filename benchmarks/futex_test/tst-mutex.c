@@ -7,7 +7,7 @@
 #include "tst-mutex.h"
 
 
-static inline uint64_t rdtsc(void)
+uint64_t rdtsc(void)
 {
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
@@ -41,31 +41,36 @@ switch(s){
 		start = rdtsc();
 		mutex1();
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 2:
 		printf("exec mutex 2 cpu {%d} \n",cpu);
 		start = rdtsc();
 		mutex2(cpu);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 3:
 		printf("exec mutex 3 cpu {%d} \n",cpu);
 		start = rdtsc();
 		mutex3(cpu);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 7:
 		printf("exec mutex 7 thread {%d} round {%d} \n",thread,round);
 		start = rdtsc();
 		mutex7(thread,round);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 8:
 		printf("exec mutex 8 cpu {%d} \n",cpu);
 		start = rdtsc();
 		mutex8(cpu);
 		end = rdtsc();
-		printf("compute time {%ld} \n",(end-start));if(s!=0) break;
+		printf("compute time {%ld} \n",(end-start));
+		if(s!=0) break;
 	case 6:
 		printf("exec mutex6\n");
 		start = rdtsc();

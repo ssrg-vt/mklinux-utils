@@ -26,7 +26,7 @@
 #include <sched.h>
 #include<syscall.h>
 #include "tst-mutex.h"
-
+#include <stdint.h>
 #ifndef TYPE
 # define TYPE PTHREAD_MUTEX_DEFAULT
 #endif
@@ -40,7 +40,7 @@ static pthread_mutex_t lock;
 
 static int  ROUNDS = 100;
 static int N =  7;
-
+static volatile int kounter =0;
 
 static void *
 tf (void *arg)
@@ -56,6 +56,8 @@ tf (void *arg)
  cpu_set_t cpu_mask;
  CPU_ZERO(&cpu_mask);
  CPU_SET(cpu_dest, &cpu_mask);
+printf("nr cpu %d\n",cpu_dest);
+
 __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
 
 
@@ -67,6 +69,11 @@ __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
 	{
 	  printf ("thread %d: failed to get the lock\n", nr);
 	  return (void *) 1l;
+	}
+
+	for(i=0;i<999;i++){
+	//do something
+		kounter++;
 	}
 
       if (pthread_mutex_unlock (&lock) != 0)
@@ -88,6 +95,9 @@ __ret = sched_setaffinity( 0, sizeof(cpu_set_t), &cpu_mask);
 int
 mutex7 (int thr, int rd)
 {
+  uint64_t start = 0;
+uint64_t end = 0;
+start = rdtsc();
   if(thr > 0 ) N = thr;
 
   if(rd > 0) ROUNDS = rd;
@@ -173,14 +183,18 @@ mutex7 (int thr, int rd)
       puts ("unlocking in parent failed");
       return 1;
     }
-
-  for (cnt = 0; cnt < N; ++cnt)
-    if (pthread_join (th[cnt], NULL) != 0)
+ 
+  for (cnt = 0; cnt < N; ++cnt){
+	printf("Join %d\n",cnt);	 
+   if (pthread_join (th[cnt], NULL) != 0)
       {
 	printf ("joining thread %d failed\n", cnt);
 	return 1;
       }
-
+  }
+  printf("kounter %d\n",kounter);
+  end = rdtsc();
+//printf("compute time {%ld} \n",(end-start));
   return 0;
 }
 

@@ -19,7 +19,7 @@ all-bomp: cg-bomp ft-bomp is-bomp ep-bomp
 	
 all-pomp: cg-pomp ft-pomp is-pomp ep-pomp
 	
-all-scalability: scalability-gomp scalability-bomp scalability-pomp
+all-scalability: scalability-gomp scalability-bomp scalability-pomp l-bomp-pthread l-bomp-spin
 	
 
 clean:
@@ -83,4 +83,9 @@ scalability-bomp:
 scalability-pomp:
 	gcc -c scalability.c -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 	gcc -o scalability-pomp scalability.o ../lib/libpomp.a $(DBGFLAGS)
-	
+
+l-bomp-pthread: 
+	gcc -static -o l-bomp-pthread lock_scalability.c -DPOSIX -fopenmp ../lib/libbomp.a   -lnuma -g -O2
+
+l-bomp-spin: 
+	gcc -static -o l-bomp-spin lock_scalability.c -DSPINLOCKS -fopenmp ../lib/libbomp.a   -lnuma -g -O2
