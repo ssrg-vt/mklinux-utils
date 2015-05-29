@@ -1,4 +1,4 @@
-#CC_FLAGS=-DDEBUG
+CC_FLAGS=-g
 
 LIB = popcorn.o
 
