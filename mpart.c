@@ -431,23 +431,23 @@ check_intersections(memres *a, int asize, memres *b, int bsize) {
 
 	while (aa< asize && bb< bsize)
 		if (a[aa].end <= b[bb].start)
-			{ //printf("iomem mem %lx-%lx\n", a[aa].start, a[aa].end);
+		{ //printf("iomem mem %lx-%lx\n", a[aa].start, a[aa].end);
 			aa++; }
 		else
-		if (b[bb].end <= a[aa].start)
+			if (b[bb].end <= a[aa].start)
 			{ //printf("iomem pci %lx-%lx\n", b[bb].start, b[bb].end);
-			bb++; }
-		else {
-			printf("%s: INTERSECT a[%d].start:%lx .end:%lx b[%d].start:%lx .end:%lx\n",
-					__func__, aa, a[aa].start, a[aa].end, bb, b[bb].start, b[bb].end);
-			exit(1); //return 0;
-		}
-/*
+				bb++; }
+			else {
+				printf("%s: INTERSECT a[%d].start:%lx .end:%lx b[%d].start:%lx .end:%lx\n",
+						__func__, aa, a[aa].start, a[aa].end, bb, b[bb].start, b[bb].end);
+				exit(1); //return 0;
+			}
+	/*
 	while (bb< bsize)
 		{printf("iomem pci %lx-%lx\n", b[bb].start, b[bb].end); bb++; }
 	while (aa< asize)
 		{printf("iomem mem %lx-%lx\n", a[aa].start, a[aa].end); aa++; }
-*/
+	 */
 
 	return 1;
 }
@@ -655,7 +655,7 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 		start = spcires->end;
 		printf("WARNING PCI hole around 0x%lx (reserved_cap)\n", reserved_cap);
 	}
-/*printf("%s: INFO reserved_cap %lx mem %lx-%lx was %lx-%lx pci %lx-%lx\n",
+	/*printf("%s: INFO reserved_cap %lx mem %lx-%lx was %lx-%lx pci %lx-%lx\n",
 		__func__, reserved_cap, start, smemres->end,
 		smemres->start, smemres->end, spcires->start, spcires->end);*/
 
@@ -739,7 +739,13 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 		long long endend = start + alignedchunk;
 		long long avail = (smemres->end - start);
 		long long required = alignedchunk, total = alignedchunk;
-		//hole handling code
+
+#ifdef COM_RESERVOIR
+		printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
+#endif
+		printf ("present_mask=%d ", l);
+
+		//hole handling code - todo follow with pci map
 		while ( avail < required ) {
 			//switch to next resource
 			total += (smemres +1)->start - smemres->end;
@@ -748,25 +754,12 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 			avail = smemres->end - smemres->start;
 			endend = smemres->start + required;
 		}
-		// in this policy BSP must be special handled
 
-#ifdef COM_RESERVOIR
-		printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
-#endif
-		if (l == 0)
-			printf ("present_mask=%d memmap=%ldM@%ldM mem=%ldM\n",
-					l,
-					(unsigned long)total >> 20, (unsigned long)start >> 20,
-					(unsigned long)(endend) >> 20
-			);
-		else
-			printf ("present_mask=%d memmap=%ldM@%ldM memmap=%ldM$%ldM mem=%ldM\n",
-					l,
-					(unsigned long)total >> 20, (unsigned long)start >> 20,
-					(unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20,
-					(unsigned long)(endend) >> 20
-			);
+		printf ("memmap=%ldM@%ldM ", (unsigned long)total >> 20, (unsigned long)start >> 20);
+		if (l != 0)
+			printf ("memmap=%ldM$%ldM ", (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20);
 
+		printf ("mem=%ldM\n", (unsigned long)(endend) >> 20);
 		start = endend;
 	}
 
