@@ -27,15 +27,21 @@ do
 if [ -n "$ARGS" ] 
 then 
 echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
+  
+  SIZE=""
+  START=""
   for ELEM in $ARGS
   do
 
      case $ELEM in
      # *memmap=[0-9]*M\$*) echo "$ELEM" ;;
-     *memmap=[0-9]*M@*) 
-       SIZE=${ELEM#memmap=}
-       START=${ELEM#memmap*@}
-       echo "FOUND $ELEM ${SIZE%%M*M} ${START%M}" 
+     *memmap=[0-9]*M@*)
+       if [ -z $SIZE ]
+       then
+         SIZE=${ELEM#memmap=}
+         START=${ELEM#memmap*@}
+         echo "FOUND $ELEM ${SIZE%%M*M} ${START%M}" 
+       fi
      ;;
      *present_mask=*)
        CPUUU=${ELEM#present_mask=}
