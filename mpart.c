@@ -735,10 +735,10 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 
 	int l;
 	for (l=0; l<cpu_num; l++) {
-
 		long long endend = start + alignedchunk;
 		long long avail = (smemres->end - start);
 		long long required = alignedchunk, total = alignedchunk;
+		memres * spcitmp = spcires;
 
 #ifdef COM_RESERVOIR
 		printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
@@ -754,10 +754,24 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 			avail = smemres->end - smemres->start;
 			endend = smemres->start + required;
 		}
+		
+		long long curr_start = start;
+		long long curr_total = total;
+		while ((spcires->end < (total + start)) && !(spcires->start==0 && spcires->end==0)) {
+//printf("PCI %lx-%lx MAX %lx start %lx total %lx\n", spcires->start, spcires->end , (total + start), curr_start, curr_total);
+			if (spcires->start != curr_start) { //note that PCI maps of root level seems to be coalesced around the PCI hole under the 4GB
+				curr_total = curr_total - (spcires->start - curr_start);
+				printf ("memmap=%ldM@%ldM ", (unsigned long)curr_total >> 20, (unsigned long)curr_start >> 20);
+			}
+			curr_total = curr_total - (spcires->end -spcires->start);
+			curr_start = spcires->end;
+			spcires += 1;
+		}
+		printf ("memmap=%ldM@%ldM ", (unsigned long)curr_total >> 20, (unsigned long)curr_start >> 20); // original
 
-		printf ("memmap=%ldM@%ldM ", (unsigned long)total >> 20, (unsigned long)start >> 20);
-		if (l != 0)
+		if (l != 0) {
 			printf ("memmap=%ldM$%ldM ", (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20);
+		}
 
 		printf ("mem=%ldM\n", (unsigned long)(endend) >> 20);
 		start = endend;
