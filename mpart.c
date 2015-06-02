@@ -658,6 +658,7 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 	/*printf("%s: INFO reserved_cap %lx mem %lx-%lx was %lx-%lx pci %lx-%lx\n",
 		__func__, reserved_cap, start, smemres->end,
 		smemres->start, smemres->end, spcires->start, spcires->end);*/
+	memres * papci = spcires;
 
 	// first cpu we consider is always zero
 	//consider the cap has part of the BSP memory
@@ -738,7 +739,7 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 		long long endend = start + alignedchunk;
 		long long avail = (smemres->end - start);
 		long long required = alignedchunk, total = alignedchunk;
-		memres * spcitmp = spcires;
+		memres * spcitmp = papci;
 
 #ifdef COM_RESERVOIR
 		printf("vty_offset=0x%llx ", (list[maxconfigurednode].rend->end - reserved_com) );
@@ -761,7 +762,7 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 //printf("PCI %lx-%lx MAX %lx start %lx total %lx\n", spcires->start, spcires->end , (total + start), curr_start, curr_total);
 			if (spcires->start != curr_start) { //note that PCI maps of root level seems to be coalesced around the PCI hole under the 4GB
 				curr_total = curr_total - (spcires->start - curr_start);
-				printf ("memmap=%ldM@%ldM ", (unsigned long)curr_total >> 20, (unsigned long)curr_start >> 20);
+				printf ("memmap=%ldM@%ldM ", (unsigned long)(spcires->start - curr_start) >> 20, (unsigned long)curr_start >> 20);
 			}
 			curr_total = curr_total - (spcires->end -spcires->start);
 			curr_start = spcires->end;
@@ -770,7 +771,19 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 		printf ("memmap=%ldM@%ldM ", (unsigned long)curr_total >> 20, (unsigned long)curr_start >> 20); // original
 
 		if (l != 0) {
-			printf ("memmap=%ldM$%ldM ", (unsigned long)(start - reserved_cap) >> 20, (unsigned long)reserved_cap >> 20);
+			long long res_start = reserved_cap;
+			long long res_total = (start - reserved_cap);
+			while ((spcitmp->end < start) && !(spcitmp->start==0 && spcitmp->end==0)) {
+//printf("PCI holes %lx-%lx MAX %lx start %lx total %lx\n", spcitmp->start, spcitmp->end , start, res_start, res_total);
+	                        if (spcitmp->start != res_start) { //note that PCI maps of root level seems to be coalesced around the PCI hole under the 4GB
+        	                        res_total = res_total - (spcitmp->start - res_start);
+                	                printf ("memmap=%ldM$%ldM ", (unsigned long)(spcitmp->start - res_start) >> 20, (unsigned long)res_start >> 20);
+                        	}
+	                        res_total = res_total - (spcitmp->end -spcitmp->start);
+	                        res_start = spcitmp->end;
+				spcitmp += 1;
+			}
+			printf ("memmap=%ldM$%ldM ", (unsigned long)(res_total) >> 20, (unsigned long)res_start >> 20);
 		}
 
 		printf ("mem=%ldM\n", (unsigned long)(endend) >> 20);
