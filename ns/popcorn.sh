@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "switching to poopcorn ns!"
-echo 0 > /proc/popcorn
+echo "activating poopcorn ns!"
+echo 0 > /proc/popcorn_namespace
 exec bash
 

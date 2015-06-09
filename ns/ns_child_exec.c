@@ -13,7 +13,7 @@
 #include <signal.h>
 #include <stdio.h>
 
-#define CLONE_NEWCPU 0x02000000
+#define CLONE_NEWPOPCORN 0x02000000
 
 /* A simple error-handling function: print an error message based
    on the value in 'errno' and terminate the calling process */
@@ -68,7 +68,7 @@ main(int argc, char *argv[])
 
     while ((opt = getopt(argc, argv, "+cimnpuUv")) != -1) {
         switch (opt) {
-	case 'c': flags |= CLONE_NEWCPU;       break;
+	case 'c': flags |= CLONE_NEWPOPCORN;       break;
         case 'i': flags |= CLONE_NEWIPC;        break;
         case 'm': flags |= CLONE_NEWNS;         break;
         case 'n': flags |= CLONE_NEWNET;        break;
