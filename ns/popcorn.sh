@@ -9,7 +9,7 @@ then
 	echo "replication degree $1 is invalid"
 else
 	echo "switching to poopcorn ns! Replication degree requested is $1"
-	#echo $1 > /proc/popcorn_namespace
-	#exec bash
+	echo $1 > /proc/popcorn_namespace
+	exec bash
 fi
 
