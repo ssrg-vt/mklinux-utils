@@ -35,17 +35,21 @@ void omp_set_num_threads(int num_threads)
 {
     if ( num_threads > 0 ) {
         bomp_num_threads  = num_threads;
+	//chris added
+	g_thread_numbers = num_threads;
     }
 }
 
 int omp_get_num_threads(void)
 {
-    return g_thread_numbers;
+    //return g_thread_numbers;
+    // chris added
+    return bomp_num_threads;
 }
 
 int omp_get_max_threads(void)
 {
-    return 1;
+    return 16;
 }
 
 int omp_get_thread_num(void)

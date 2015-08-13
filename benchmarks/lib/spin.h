@@ -23,8 +23,26 @@
 // why 64-bit? this means we need an extra prefix on the lock ops... -AB
 typedef volatile unsigned long bomp_lock_t;
 
+
 static inline void bomp_lock(bomp_lock_t *lock)
 {
+//Chris added
+//implementation taken from https://lkml.org/lkml/2012/7/6/568
+#ifdef __AARCH64
+	unsigned int tmp;
+    __asm__ __volatile__(
+	"	sevl\n"
+	"1:	wfe\n"
+	"2:	ldaxr	%w0, [%1]\n"
+	"	cbnz	%w0, 1b\n"
+	"	stxr	%w0, %w2, [%1]\n"
+	"	cbnz	%w0, 2b\n"
+	: "=&r" (tmp)
+	: "r" (lock), "r" (1)
+	: "memory");
+
+#endif
+#ifdef __X86
     __asm__ __volatile__("0:\n\t"
                          "cmpq $0, %0\n\t"
                          "je 1f\n\t"
@@ -34,6 +52,7 @@ static inline void bomp_lock(bomp_lock_t *lock)
                          "lock btsq $0, %0\n\t"
                          "jc 0b\n\t"
                          : "+m" (*lock) : : "memory", "cc");
+#endif
 }
 
 static inline void bomp_unlock(bomp_lock_t *lock)
