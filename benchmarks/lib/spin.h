@@ -23,12 +23,10 @@
 // why 64-bit? this means we need an extra prefix on the lock ops... -AB
 typedef volatile unsigned long bomp_lock_t;
 
-
 static inline void bomp_lock(bomp_lock_t *lock)
 {
-//Chris added
-//implementation taken from https://lkml.org/lkml/2012/7/6/568
-#ifdef __AARCH64
+// taken from https://lkml.org/lkml/2012/7/6/568
+#ifdef __aarch64__
 	unsigned int tmp;
     __asm__ __volatile__(
 	"	sevl\n"
@@ -40,9 +38,7 @@ static inline void bomp_lock(bomp_lock_t *lock)
 	: "=&r" (tmp)
 	: "r" (lock), "r" (1)
 	: "memory");
-
-#endif
-#ifdef __X86
+#elif __x86_64__
     __asm__ __volatile__("0:\n\t"
                          "cmpq $0, %0\n\t"
                          "je 1f\n\t"
@@ -52,6 +48,8 @@ static inline void bomp_lock(bomp_lock_t *lock)
                          "lock btsq $0, %0\n\t"
                          "jc 0b\n\t"
                          : "+m" (*lock) : : "memory", "cc");
+#else
+    #error "Architecture not supported"
 #endif
 }
 

@@ -11,30 +11,41 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+
+
+#ifndef NUMA
+# ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+# endif
+#include <sched.h>
 #endif
 
+
+//#include <stdio.h>
 #include <pthread.h>
-//#include <numa.h>
+#ifdef NUMA
+#include <numa.h>
+#endif
+
 #include <stdio.h>
+
 #include "backend.h"
 #include "omp.h"
-//chris added
-#include <sched.h>
 
 
 void backend_set_numa(unsigned id)
 {
-    //struct bitmask *bm = numa_allocate_cpumask();
-    //numa_bitmask_setbit(bm, id);
-    //numa_sched_setaffinity(0, bm);
-    //numa_free_cpumask(bm);
+#ifdef NUMA
+    struct bitmask *bm = numa_allocate_cpumask();
+    numa_bitmask_setbit(bm, id);
+    numa_sched_setaffinity(0, bm);
+    numa_free_cpumask(bm);
+#else
     cpu_set_t cpu_mask;
     CPU_ZERO(&cpu_mask);
     CPU_SET(id, &cpu_mask);
-
-    pthread_setaffinity_np(0, sizeof(cpu_set_t), &cpu_mask);
+    sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask);
+#endif
 }
 
 void backend_run_func_on(int core_id, void* cfunc, void *arg)

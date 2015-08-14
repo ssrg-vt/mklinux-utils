@@ -1,0 +1,62 @@
+##########################################################################
+# Copyright (c) 2012, 2013, 2014, 2015, SSRG Virginia Tech
+# Copyright (c) 2007, 2008, 2009, ETH Zurich.
+# All rights reserved.
+#
+# This file is distributed under the terms in the attached LICENSE file.
+# If you do not find this file, copies can be found by writing to:
+# ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+##########################################################################
+
+# original
+CFLAGS = -DPOSIX -g -m64
+
+CFLAGS_X86 = -DPOSIX -g -m64 -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/musl-1.1.10/include -D__X86
+CFLAGS_AARCH64 = -DPOSIX -g -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/install/aarch64-musl/include -D__AARCH64
+OTHERS = -O2
+
+CC_AARCH64 = aarch64-linux-gnu-gcc
+
+
+#all: libbomp.a libpomp.a
+all: libbomp_x86.a libbomp_aRM.a
+
+#libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
+#	
+#cthread.o:
+#	$(CC) $(CFLAGS) -c cthread.c $(OTHERS)
+libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
+#	$(AR) -q $@ $^
+
+libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o
+	$(AR) -q $@ $^
+
+linux_backend_arm.o: linux_backend.c
+	aarch64-linux-gnu-gcc $(CFLAGS_AARCH64) -c linux_backend.c -o $@ 
+
+omp_arm.o: omp.c
+	$(CC_AARCH64) $(CFLAGS_AARCH64) -o $@ -c omp.c
+
+parallel_arm.o: parallel.c
+	aarch64-linux-gnu-gcc $(CFLAGS_AARCH64) -c parallel.c -o $@
+
+processing_arm.o: processing.c
+	aarch64-linux-gnu-gcc $(CFLAGS_AARCH64) -c processing.c -o $@
+
+self_info_arm.o: self_info.c
+	aarch64-linux-gnu-gcc $(CFLAGS_AARCH64) -c self_info.c -o $@
+
+libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+
+tests: cthread.o
+	$(CC) $(CFLAGS) -o test-cthread tst-cthread.c $^
+	$(CC) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
+	$(CC) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^
+	$(CC) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
+	$(CC) $(CFLAGS) -o test-cthread4 tst-cthread4.c $^
+	$(CC) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
+	$(CC) $(CFLAGS) -o test-synchmalloc tst-synchmalloc.c $^
+
+clean:
+	rm -f *.o libbomp_aRM.a libbomp_x86.a libpomp.a test-*

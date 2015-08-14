@@ -34,22 +34,19 @@ void bomp_custom_exit(void)
 void omp_set_num_threads(int num_threads)
 {
     if ( num_threads > 0 ) {
-        bomp_num_threads  = num_threads;
-	//chris added
-	g_thread_numbers = num_threads;
+        bomp_num_threads = num_threads;
+//	g_thread_numbers = num_threads; //chris
     }
 }
 
 int omp_get_num_threads(void)
 {
-    //return g_thread_numbers;
-    // chris added
-    return bomp_num_threads;
+    return g_thread_numbers;
 }
 
 int omp_get_max_threads(void)
 {
-    return 16;
+    return 1;
 }
 
 int omp_get_thread_num(void)

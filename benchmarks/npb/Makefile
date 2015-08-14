@@ -10,6 +10,7 @@
 
 DBGFLAGS=-g
 OPTFLAGS=-O2
+#OPTBOMP= -lnuma
 
 all: all-gomp all-bomp all-pomp all-scalability
 
@@ -39,19 +40,19 @@ is-gomp:
 
 cg-bomp: 
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o cg-bomp cg.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTBOMP) $(OPTFLAGS) $(DBGFLAGS)
 	
 ep-bomp:
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o ep-bomp ep.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o ep-bomp ep.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTBOMP) $(OPTFLAGS) $(DBGFLAGS)
 
 ft-bomp:
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o ft-bomp ft.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o ft-bomp ft.c c_print_results.c c_randdp.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTBOMP) $(OPTFLAGS) $(DBGFLAGS)
 
 is-bomp:
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
-	gcc -o is-bomp is.c c_print_results.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o is-bomp is.c c_print_results.c c_timers.c wtime.o -DBOMP -lm -fopenmp ../lib/libbomp.a -lpthread $(OPTBOMP) $(OPTFLAGS) $(DBGFLAGS)
 
 cg-pomp:
 	gcc -c wtime.c -DPOSIX $(OPTFLAGS) $(DBGFLAGS)
@@ -78,7 +79,7 @@ scalability-gomp:
 	gcc -o scalability-gomp scalability.c -DPOSIX -fopenmp $(OPTFLAGS) $(DBGFLAGS)
 
 scalability-bomp:
-	gcc -o scalability-bomp scalability.c -DBOMP -fopenmp ../lib/libbomp.a -lpthread -lnuma $(OPTFLAGS) $(DBGFLAGS)
+	gcc -o scalability-bomp scalability.c -DBOMP -fopenmp ../lib/libbomp.a -lpthread $(OPTBOMP) $(OPTFLAGS) $(DBGFLAGS)
 	
 scalability-pomp:
 	gcc -c scalability.c -DBOMP -fopenmp $(OPTFLAGS) $(DBGFLAGS)
