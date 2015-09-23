@@ -1,5 +1,3 @@
-boot_args_*.args
-boot_args_*.param
 copy_ramdisk
 kexec
 mpart
