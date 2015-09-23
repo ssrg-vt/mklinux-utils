@@ -37,12 +37,12 @@ ARG_PCI="pci_dev_flags=$_ARG_PCI"
 
 #configuration params - low memory (1MB)
 command -v gawk >/dev/null 2>&1 || { echo "gawk not found in the system. please install it and try again" ; exit 1 ; }
-TRAMPOLINE_BSP=`dmesg | grep "trampoline BSP"`
-if [ -z "$TRAMPOLINE_BSP" ]
-then
-  echo "not a Popcorn kernel, reboot with a Popcorn kernel"
-  exit 1
-fi
+#TRAMPOLINE_BSP=`dmesg | grep "trampoline BSP"`
+#if [ -z "$TRAMPOLINE_BSP" ]
+#then
+#  echo "not a Popcorn kernel, reboot with a Popcorn kernel"
+#  exit 1
+#fi
 TRAMPOLINE=`dmesg | sed -n '/trampoline/p' | sed 's/\(at \[[0-9a-fA-F]*\] \)\([0-9a-fA-F]*\) size [0-9]*/\2/' | awk '{print $NF}' | gawk 'BEGIN {i=0x1000000;} { val=strtonum("0x"$1); if (val < i) i=val; } END {printf("%d\n", i);}'`
 if [ -z "$TRAMPOLINE" ]
 then

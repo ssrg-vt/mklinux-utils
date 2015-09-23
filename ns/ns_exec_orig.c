@@ -24,10 +24,10 @@
 #endif
 
 #ifndef setns
-static inline int setns(int fd, int nstype)
+/*static inline int setns(int fd, int nstype)
 {
     return syscall(__NR_sys_setns, fd, nstype);
-}
+}*/
 #endif
 
 int

@@ -787,8 +787,8 @@ int main(int argc, char* argv[])
   
 // partitionedcpu_globalshm_nonodes ( anode);
   // partitionedcpu_globalshm( anode);
- partitionedcpu_globalshm_nonodes ( anode);
-// clusteredcpu_on_nodes(anode);
+partitionedcpu_globalshm_nonodes ( anode);
+ //clusteredcpu_on_nodes(anode);
  
  free(anode);
   
