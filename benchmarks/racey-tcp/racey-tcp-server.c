@@ -41,7 +41,7 @@ void* racey_worker(void* data)
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			if (client_fds[client_idx] > 0) {
+			if ( client_idx>0 && client_fds[client_idx] > 0) {
 				fd = client_fds[client_idx];
 				client_fds[client_idx] = -1;
 				client_idx --;
@@ -147,7 +147,7 @@ int main(int argc, char **argv)
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			if (client_idx < WORKER_NUM) {
+			if (client_idx < WORKER_NUM -1) {
 				/* Feed the socket to workers */
 				//syscall(320);
 				client_idx ++;
