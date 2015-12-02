@@ -13,8 +13,11 @@
 // most parsing function from
 // numactl-2.0.8-rc5.tar.gz/libnuma.c
 
+
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -22,6 +25,7 @@
 //#include "bit.h"
 
 unsigned long long total_by_node=-1;
+int restrict_cpu =-1;
 
 /* (cache the result?) */
 long long numa_node_size64(int node, long long *freep)
@@ -638,6 +642,10 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 	long long startpci = spcires->start;
 
 	printf("##### %s ##### \n", __func__);
+if (restrict_cpu != -1) {
+	printf("restricting cpus to %d (from %d)\n", restrict_cpu, cpu_num);
+	cpu_num = restrict_cpu;
+}
 
 	//contains reserved_cap?
 	while ( smemres->start < reserved_cap ) {
@@ -675,7 +683,10 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 
 	printf("NONODES cpu %d sum of hole mem before the cap %lld %llx\n", cpu_num, total_to_sum, total_to_sum);
 	//This memory will be added to the total available to obtain the perfect chunk size in order to allocate the first 16MB
-	size += total_to_sum;
+//	size += total_to_sum;
+#ifdef COM_RESERVOIR
+        size -= reserved_com;
+#endif
 
 	unsigned long long chunk = 0;
 	unsigned long long alignedchunk =0;
@@ -700,11 +711,11 @@ int partitionedcpu_globalshm_nonodes ( numa_node * list)
 	alignedchunk =  chunk & ~RESOLUTION_MASK;
 	new_total = alignedchunk * cpu_num;
 #endif
-
+/*
 #ifdef COM_RESERVOIR
 	size -= reserved_com;
 #endif
-
+*/
 	long long diff = size -new_total;
 	start = 0;
 
@@ -871,8 +882,22 @@ int main(int argc, char* argv[])
 	// output will be
 	// present_mask=1,2,3,4,5 mem=3G memmap=16MB$0
 
+	int ii;
+	for (ii=0; ii< argc; ii++)
+		if (strncmp(argv[ii],"--restrict", 10) == 0) {
+			char *endptr, *startptr = 0;
+			if (argv[ii][10] == 0)
+				if ((ii+1) <argc)
+					startptr = argv[(ii +1)];
+			if (argv[ii][10] == '=') 
+				startptr = &(argv[ii][11]);
 
-	// TODO
+			if (startptr) {
+				restrict_cpu = (int) strtol(startptr, &endptr, 10);
+				if (restrict_cpu == LONG_MIN || restrict_cpu ==LONG_MIN)
+					restrict_cpu=-1;
+			}
+		}				
 
 	set_configured_nodes();
 
@@ -989,7 +1014,7 @@ int main(int argc, char* argv[])
 	// partitionedcpu_globalshm_nonodes ( anode);
 	// partitionedcpu_globalshm( anode);
 	partitionedcpu_globalshm_nonodes ( anode);
-	// clusteredcpu_on_nodes(anode);
+	//clusteredcpu_on_nodes(anode);
 
 	free(anode);
 
