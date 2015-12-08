@@ -14,6 +14,12 @@ absolute_path() {
     popd > /dev/null
 }
 
+absolute_file_path() {
+    local dir
+    dir="$(dirname "$1")"
+    echo "$(absolute_path "$dir")/$(basename "$1")"
+}
+
 is_dir() {
     [ -n "${!1}" ] || fail "variable $1 is empty"
     [ -d "${!1}" ] || fail "${!1}: directory not found (pwd is $(pwd))"

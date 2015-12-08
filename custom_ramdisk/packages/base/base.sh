@@ -16,12 +16,12 @@ ln -s /bin/busybox "${image_root}/init"
 
 # copy inittab and rc.S
 # TODO: copy shadow from the linux install instead
-readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/tunnel /bin/heartbeat etc/shadow"
+readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/tunnel /bin/heartbeat etc/shadow etc/passwd etc/group"
 copy_files() {
     local f src target dir
     for f in $files; do
         src="./"$(basename "$f")
-        [ -f "$src" ] || fail "$src not found"
+        [ -f "$src" ] || fail "$(absolute_file_path "$src") not found"
         target="${image_root}/$f"
         dir=$(dirname "$target")
         mkdir -p "$dir"

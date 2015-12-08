@@ -10,7 +10,6 @@ if [ -d "$image_root" ]; then
     mkdir "$image_root"
 else
     mkdir "$image_root"
-    declare -r image_root=$(absolute_path "$image_root")
 fi
 
 # create the basic fs structure

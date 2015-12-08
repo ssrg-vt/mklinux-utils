@@ -10,7 +10,7 @@ set -eu -o pipefail
 
 trap 'fail "caught signal"' HUP KILL QUIT
 
-readonly verbose="n"
+readonly verbose="y"
 
 if [ $# -ne 0 ]; then
     echo $usage >&2
