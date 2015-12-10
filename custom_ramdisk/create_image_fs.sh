@@ -13,7 +13,7 @@ else
 fi
 
 # create the basic fs structure
-mkdir -p ${image_root}/{bin,dev,etc,lib,lib64,mnt/root,proc,root,sbin,sys}
+mkdir -p ${image_root}/{bin,dev,etc,lib,lib64,mnt/root,proc,root,sbin,sys,dev/pts}
 
 # install packages
 inst_packages() {

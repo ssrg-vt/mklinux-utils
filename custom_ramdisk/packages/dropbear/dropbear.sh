@@ -10,9 +10,10 @@ command -v dropbearkey >/dev/null 2>&1 || { echo >&2 "error: dropbearkey is not 
 readonly dropbearkey=$(command -v dropbearkey)
 
 
-readonly dropbear_config_dir="$image_root/etc/dropbear"
+readonly dropbear_config_dir="${image_root}/etc/dropbear"
 mkdir $dropbear_config_dir
 
-$dropbearkey -t rsa -f "$dropbear_config_dir/rsa_key"
+cp "./dropbear_rsa_host_key" "${dropbear_config_dir}/"
 
-( . "${scripts_dir}/copy_exec.sh" "$dropbearkey" "$image_root")
+#$dropbearkey -t rsa -f "$dropbear_config_dir/rsa_key"
+#( . "${scripts_dir}/copy_exec.sh" "$dropbearkey" "$image_root")

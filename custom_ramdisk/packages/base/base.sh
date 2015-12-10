@@ -31,10 +31,14 @@ else
     cp -a "$udhcpc_default_script"  "${image_root}/etc/udhcpc/"
 fi
 
+# all the dirs containing dynamic libraries
+readonly ldconfig_dirs="$(/sbin/ldconfig -p | grep '=>' | cut -d '>' -f 2 | rev | cut -d / -f 2- | rev | sort -u )"
+
 # copy the libnss* libs, needed by login utilities
 # set the field separator to newline, for the for loop below.
-readonly ldconfig_dirs="$(/sbin/ldconfig -p | grep '=>' | cut -d '>' -f 2 | rev | cut -d / -f 2- | rev | sort -u |  tr -d '\n')"
-for lib in $(find $ldconfig_dirs \( -type f -o -type l \) -name "libnss*"); do
+#readonly ldconfig_dirs="$(/sbin/ldconfig -p | grep '=>' | cut -d '>' -f 2 | rev | cut -d / -f 2- | rev | sort -u |  tr -d '\n')"
+readonly ldconfig_dirs_one_line="$(echo "${ldconfig_dirs//[[:blank:]]/}" | tr '\n' ' ')"
+for lib in $(find $ldconfig_dirs_one_line \( -type f -o -type l \) -name "libnss*"); do
         # TODO: do not create copies in place of symlinks...
         ( . "${scripts_dir}/copy_exec.sh" "$lib" "$image_root")
 done
@@ -43,15 +47,18 @@ done
 readonly profile="$(cat << EOF
 PATH="$PATH"
 export PATH
-LD_LIBRARY_PATH="$(/sbin/ldconfig -p | grep '=>' | cut -d '>' -f 2 | rev | cut -d / -f 2- | rev | sort -u |  paste -d: -s | tr -d ' ')"
+LD_LIBRARY_PATH="$(echo "${ldconfig_dirs//[[:blank:]]/}" | paste -d: -s )"
 export LD_LIBRARY_PATH
 EOF
 )"
 echo "$profile" > "./profile"
 
+# setup /etc/ld.so.conf
+echo "${ldconfig_dirs//[[:blank:]]/}" >> "${image_root}/etc/ld.so.conf"
+
 copy_files() {
     # copy the following list of file from the current dir to ${image_root}/path_to_file
-    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/securetty etc/profile etc/nsswitch.conf"
+    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/profile etc/nsswitch.conf"
     local f src target dir
     for f in $files; do
         src="./"$(basename "$f")
