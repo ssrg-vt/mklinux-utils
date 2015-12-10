@@ -6,18 +6,19 @@
 # To include a program from the current linux install, create a new package in packages. See packages/base/ and packages/nice/ for examples.
 # The base backage sets up busybox and uses busybox as init, which in turn reads inittab.
 
+# This script must set image_root, packages_dir, and mklinux_utils for its sub-scripts.
+
 set -eu -o pipefail
 
 trap 'fail "caught signal"' HUP KILL QUIT
 
-readonly verbose="y"
+readonly verbose="n"
 
-if [ $# -ne 0 ]; then
-    echo $usage >&2
-    echo "ERROR: this script does not take any parameter. It produces a cpio initramfs named custom-initramfs.cpio.gz in the current directory." >&2
+if [ $# -ne 1 ]; then
+    echo "ERROR: mklinux_utils_dir not given. " >&2
+    echo "USAGE: make_image.sh mklinux_utils_dir. Produces a cpio initramfs named custom-initramfs.cpio.gz in the current directory." >&2
     exit 1
 fi
-
 
 # get absolute path to the dir containing the scripts
 declare scripts_dir="$(dirname "$0")/"
@@ -28,6 +29,9 @@ popd > /dev/null
 
 # load utility function definitions
 . "${scripts_dir}/utils.sh"
+
+[ -d $1 ] || fail "directory $1 not found"
+declare -r mklinux_utils="$(absolute_path "$1")"
 
 declare image_root="$scripts_dir/image/"
 declare packages_dir="$scripts_dir/packages/"

@@ -6,6 +6,7 @@ fail() {
     exit 1
 } 
 
+# absolute path of a directory
 absolute_path() {
     [ -d "$1" ] || fail "not a directory: $1"
     pushd . > /dev/null
@@ -14,6 +15,8 @@ absolute_path() {
     popd > /dev/null
 }
 
+# absolute path of a file
+# the file may not exist but the directory must exist
 absolute_file_path() {
     local dir
     dir="$(dirname "$1")"
