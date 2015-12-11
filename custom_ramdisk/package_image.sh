@@ -13,4 +13,4 @@ declare target=$1
 declare -r target="$(absolute_path "$(dirname "$target")")/$(basename "$target")"
 
 # do this in a sub-shell to avoid changing directory.
-(cd "$image_root" && find . -print0 | cpio --null -ov --format=newc | gzip -9 > "$target") || fail "creation of the cpio archive failed"
+(cd "$image_root" && find . -print0 | cpio --null -ov --format=newc | gzip -9 > "$target") 2>/dev/null || fail "creation of the cpio archive failed"

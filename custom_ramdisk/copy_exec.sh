@@ -10,8 +10,10 @@
 set -eu -o pipefail
 
 declare src="${1}"
-[ -f "${src}" ] || exit 1
+[ -f "${src}" ] || fail "file ${src} not found"
 declare -r src="$(absolute_file_path "$src")"
+
+[ "${verbose}" = "y" ] && echo "src is ${src}"
 
 [ -d "$2" ] || fail "directory $2 not found"
 declare -r dest="$2"
@@ -22,12 +24,14 @@ else
     declare -r target="$(absolute_path "$dest")/$src"
 fi
 
+[ "${verbose}" = "y" ] && echo "target is ${target}"
+
 # [ ! -e "$target" ] || fail "$target already exists"
 
 # create the dir to copy to if it doesn't exist
 mkdir -p "${target%/*}"
 
-[ "${verbose}" = "y" ] && echo "Adding binary ${src}"
+[ "${verbose}" = "y" ] && echo "Copying binary ${src} to ${target}"
 cp -pL "${src}" "${target}"
 
 # Copy the dependant libraries
