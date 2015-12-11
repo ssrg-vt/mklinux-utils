@@ -15,15 +15,12 @@ fi
 # create the basic fs structure
 mkdir -p ${image_root}/{bin,dev,etc,lib,lib64,mnt/root,proc,root,sbin,sys,dev/pts}
 
-# install packages
-inst_packages() {
-    local p dir script
-    for p in $(ls -1 "${packages_dir}/"); do
-        dir="${packages_dir}/$p/"
-        if [ -d "$dir" ]; then
-            script="$dir/$(basename "$dir").sh"
-            ( cd "$dir"; . "$script" ) || fail "running $script failed"
-        fi
-    done
-}
-inst_packages
+# install packages in lexicographic order
+# the convention is that a package dir must contain a script which has the same name as the directory, plus the .sh postfix, unless the dir name is of the form DDname, where D is a digit, in which case the script must be called name.sh.
+# the DDname form can be used to enforce an order on packages.
+declare package_dir install_script
+for package_dir in $(ls -1l "${packages_dir}/" | grep '^d' | awk '{print $9}' | sort -u); do
+    package_dir_abs="${packages_dir}/$package_dir/"
+    install_script="$package_dir_abs/${package_dir##[[:digit:]][[:digit:]]}.sh"
+    ( cd "$package_dir_abs"; . "$install_script" ) || fail "running $install_script failed"
+done

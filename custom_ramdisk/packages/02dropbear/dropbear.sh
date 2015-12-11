@@ -15,5 +15,7 @@ mkdir $dropbear_config_dir
 
 cp "./dropbear_rsa_host_key" "${dropbear_config_dir}/"
 
+echo "::respawn:/usr/sbin/dropbear -F" >> "${image_root}/etc/inittab"
+
 #$dropbearkey -t rsa -f "$dropbear_config_dir/rsa_key"
 #( . "${scripts_dir}/copy_exec.sh" "$dropbearkey" "$image_root")

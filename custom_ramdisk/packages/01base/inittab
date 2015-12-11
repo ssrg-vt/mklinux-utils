@@ -84,5 +84,3 @@ tty4::askfirst:-/bin/sh
 
 #vty0::askfirst:-/bin/sh
 vty0::respawn:/sbin/getty -L vty0 38400 vt100
-
-::respawn:/usr/sbin/dropbear -F
