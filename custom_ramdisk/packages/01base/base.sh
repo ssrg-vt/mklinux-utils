@@ -71,3 +71,5 @@ copy_files() {
 
 }
 copy_files
+
+rm "./profile"
