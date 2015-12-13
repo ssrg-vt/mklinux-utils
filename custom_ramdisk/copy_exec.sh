@@ -13,6 +13,7 @@ declare src="${1}"
 [ -f "${src}" ] || fail "file ${src} not found"
 declare -r src="$(absolute_file_path "$src")"
 
+[ "${verbose}" = "y" ] && echo "copy_exec.sh: looking at ${src}"
 [ "${verbose}" = "y" ] && echo "src is ${src}"
 
 [ -d "$2" ] || fail "directory $2 not found"
@@ -31,27 +32,44 @@ fi
 # create the dir to copy to if it doesn't exist
 mkdir -p "${target%/*}"
 
-[ "${verbose}" = "y" ] && echo "Copying binary ${src} to ${target}"
-cp -pL "${src}" "${target}"
+if [ ! -e "${target}" ]; then
+    [ "${verbose}" = "y" ] && echo "Copying binary ${src} to ${target}"
+    cp -pL "${src}" "${target}"
+fi
 
-# Copy the dependant libraries
+# Copy the needed libraries
 for x in $(ldd "${src}" 2>/dev/null | sed -e '
     /\//!d;
     /linux-gate/d;
     /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
     s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
 
+    # x is an absolute path
     libname=$(basename "${x}")
     dirname=$(dirname "${x}")
+    [ "${verbose}" = "y" ] && echo "Adding library ${x}" 
 
-    #		mkdir -p "${dest}/${dirname}"
-    if [ ! -e "${dest}/${dirname}/${libname}" ]; then
+    if [ ! -e "${dest}/$x" ]; then
+        [ "${verbose}" = "y" ] && echo "Not yet copied: $x" 
         # if the target dir does not exist, create it:
         if [ ! -d "${dest}/${dirname}" ]; then
+            [ "${verbose}" = "y" ] && echo "Creating ${dest}/${dirname}" 
             mkdir -p "${dest}/${dirname}"
         fi
-        cp -pL "${x}" "${dest}/${dirname}/"
-        [ "${verbose}" = "y" ] && echo "Added library ${x}" || true
+        if [ -h "$x" ]; then
+            [ "${verbose}" = "y" ] && echo "Copying symlink $x" 
+            # get target
+            link_target="$(readlink -f "$x")"
+            # create the link.
+            ln -s "$link_target" "${dest}/$x"
+            # copy the target if needed
+            if [ ! -e "${dest}/$link_target" ]; then
+                [ "${verbose}" = "y" ] && echo "Copying target $link_target of symlink $x" 
+                cp -p "$link_target" "${dest}/$link_target"
+            fi
+        else
+            cp -pL "${x}" "${dest}/${dirname}/"
+        fi
     fi
 done
 
