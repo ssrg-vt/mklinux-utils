@@ -42,6 +42,23 @@ void write_serial(char a) {
 
 int main (int argc, char* argv[])
 {
+
+  int n;
+  if (argc != 2) {
+    printf("usage: heartbeat n, where n is the number of seconds between each beat.\n");
+    exit(0);
+  }
+  else {
+      char* end;
+      int n = strtol(argv[1], &end, 10);
+      if (end == argv[1]) {
+          printf("usage: heartbeat n, where n is the number of seconds between each beat.\n");
+          exit(0);
+      }
+      printf("heartbeat: beating every %d seconds\n", n);
+  }
+
+
   pid_t pid= fork();
   if (pid <0) {
     printf("fork error. exit.\n");
@@ -82,7 +99,7 @@ int main (int argc, char* argv[])
     sprintf(buffer, "heartbeat core%d cnt%d\r\n", sched_getcpu(), i++);
     write(fd, buffer, strlen(buffer));
     fsync(fd);
-    sleep (15);
+    sleep (n);
   }
   close(fd);
 #else

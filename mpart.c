@@ -3,7 +3,7 @@
  */
 
 /*
- * this code partition the memory to be used by mklinux
+ * this code partitions the memory to be used by mklinux
  * this is part of a set of scripts, prototype code.
  * Because of lack of time this code remains in prototype version.
  * Identation has been corrected with Eclipse
@@ -1020,7 +1020,3 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
-
-
-
-

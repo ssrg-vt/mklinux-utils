@@ -12,57 +12,54 @@ CPUS=`cat /proc/cpuinfo | grep processor | awk '{print $3}'`
 
 for CPU in $CPUS
 do
-
-  ARGS=`./create_bootargs.sh $CPU`
-  if [ $? -ne 0 ]
-  then
-    if [ $SUPPRESS -ne 1 ]
+    ARGS=`./create_bootargs.sh $CPU`
+    if [ $? -ne 0 ]
     then
-      echo "WARN if this is not clustering this is an ERROR: $ARGS"
-      SUPPRESS=1
+        if [ $SUPPRESS -ne 1 ]
+        then
+            # What does this mean?
+            echo "WARN if this is not clustering this is an ERROR: $ARGS"
+            SUPPRESS=1
+        fi
+        ARGS=
     fi
-    ARGS=
-  fi
 
-if [ -n "$ARGS" ] 
-then 
-echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
-  
-  SIZE=""
-  START=""
-  for ELEM in $ARGS
-  do
+    if [ -n "$ARGS" ] 
+    then 
+        echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
 
-     case $ELEM in
-     # *memmap=[0-9]*M\$*) echo "$ELEM" ;;
-     *memmap=[0-9]*M@*)
-       if [ -z $SIZE ]
-       then
-         SIZE=${ELEM#memmap=}
-         START=${ELEM#memmap*@}
-         echo "FOUND $ELEM ${SIZE%%M*M} ${START%M}" 
-       fi
-     ;;
-     *present_mask=*)
-       CPUUU=${ELEM#present_mask=}
-       echo "FOUND $ELEM $CPUUU"
-       if [ ${CPUUU%-*} -ne $CPU ]
-       then
-         echo "WARN CPUUU ${CPUUU%-*} while CPU $CPU"
-       fi
-     ;;
-    esac
-  done
-  BOOT_ADDR=`printf "0x%x\n" $(( ${START%M} << 20 ))`
-  RAMDISK_ADDR=`printf "0x%x\n" $(( ( ${START%M} + $RAMDISK_OFFSET ) << 20 ))`
+        SIZE=""
+        START=""
+        for ELEM in $ARGS
+        do
 
- # echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
-  echo "vmlinux.elf $FILE_PARAMS$CPU$FILE_ARGS $CPU $BOOT_ADDR $RAMDISK_ADDR" > $FILE_PARAMS$CPU$FILE_PARAM
+            case $ELEM in
+                # *memmap=[0-9]*M\$*) echo "$ELEM" ;;
+            *memmap=[0-9]*M@*)
+                if [ -z $SIZE ]
+                then
+                    SIZE=${ELEM#memmap=}
+                    START=${ELEM#memmap*@}
+                    echo "FOUND $ELEM ${SIZE%%M*M} ${START%M}" 
+                fi
+                ;;
+            *present_mask=*)
+                CPUUU=${ELEM#present_mask=}
+                echo "FOUND $ELEM $CPUUU"
+                if [ ${CPUUU%-*} -ne $CPU ]
+                then
+                    echo "WARN CPUUU ${CPUUU%-*} while CPU $CPU"
+                fi
+                ;;
+        esac
+    done
+    BOOT_ADDR=`printf "0x%x\n" $(( ${START%M} << 20 ))`
+    RAMDISK_ADDR=`printf "0x%x\n" $(( ( ${START%M} + $RAMDISK_OFFSET ) << 20 ))`
+
+    # echo $ARGS > $FILE_PARAMS$CPU$FILE_ARGS
+    echo "vmlinux.elf $FILE_PARAMS$CPU$FILE_ARGS $CPU $BOOT_ADDR $RAMDISK_ADDR" > $FILE_PARAMS$CPU$FILE_PARAM
 fi
-  START_ADDR=""
+# what is that?
+START_ADDR=""
 
 done
-
-
-
-
