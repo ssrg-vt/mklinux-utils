@@ -22,14 +22,17 @@ readonly tunnel="$mklinux_utils/tunnel"
 ( . "${scripts_dir}/copy_exec.sh" "$tunnel" "$image_root" "/bin/tunnel" )
 
 # set up udhcpc
-readonly udhcpc_default_script="/etc/udhcpc/default.script"
+declare udhcpc_default_script="/etc/udhcpc/default.script"
 if [ ! -f "$udhcpc_default_script" ]; then
-    echo >&2 "error: $udhcpc_default_script not found. Aborting"
-    exit 1
-else
-    mkdir "${image_root}/etc/udhcpc/"
-    cp -a "$udhcpc_default_script"  "${image_root}/etc/udhcpc/"
+	if [ -f "./default.script" ]; then
+		udhcpc_default_script="./default.script"
+	else
+		echo >&2 "error: $udhcpc_default_script not found. Aborting"
+		exit 1
+	fi
 fi
+mkdir "${image_root}/etc/udhcpc/"
+cp -a "$udhcpc_default_script"  "${image_root}/etc/udhcpc/"
 
 # all the dirs containing dynamic libraries
 readonly ldconfig_dirs="$(/sbin/ldconfig -p | grep '=>' | cut -d '>' -f 2 | rev | cut -d / -f 2- | rev | sort -u )"
