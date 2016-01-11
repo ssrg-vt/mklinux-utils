@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
 	if (argc != 2)     /* Test for correct number of arguments */
 	{
-		fprintf(stderr, "Usage:  %s <Server Port>\n", argv[0]);
+		//fprintf(stderr, "Usage:  %s <Server Port>\n", argv[0]);
 		exit(1);
 	}
 
@@ -64,52 +64,51 @@ int main(int argc, char **argv)
 
 	/* Must make the listening socket to be non-blocking */
 	if (flags = fcntl(server_fd, F_GETFL, 0) == -1) {
-		perror("fcntl error");
+		//perror("fcntl error");
 		return 1;
 	}
 
 	flags |= O_NONBLOCK;
 	if (fcntl(server_fd, F_SETFL, flags) == -1) {
-		perror("fcntl error");
+		//perror("fcntl error");
 		return 1;
 	}
 
-	if (listen(server_fd, 10) < 0) {
+	if (listen(server_fd, 30) < 0) {
 		return 1;
 	}
 
 	efd = epoll_create1(0); /* Create epoll fd */
 	if (efd == -1) {
-		perror("epoll_create error");
+		//perror("epoll_create error");
 		return 1;
 	}
 
 	e.data.fd = server_fd;   /* Register the listening socket */
-	e.events = EPOLLIN | EPOLLET;
+	e.events = EPOLLIN;
 
 	if (epoll_ctl(efd, EPOLL_CTL_ADD, server_fd, &e) == -1) {
-		perror("epoll_ctl error");
+		//perror("epoll_ctl error");
 		return 1;
 	}
 
 	events = malloc(MAX_EVENTS * sizeof(struct epoll_event));
 
 	client_len = sizeof(client_addr);
-	printf("server all ready\n");
 	for (;;) {
 		int n, i;
 
-		printf("waiting\n");
 		n = epoll_wait(efd, events, MAX_EVENTS, -1);
+		//printf("%d events are here\n", n);
 		for (i = 0; i < n; i++) {
 			if ((events[i].events & EPOLLERR) ||
 				(events[i].events & EPOLLHUP) ||
 				(!(events[i].events & EPOLLIN))) {
 				/* The epoll has gone wrong */
-				printf("An unusual socket %d\n", events[i].data.fd);
+				//printf("wrong %d\n", events[i].events);
 				close(events[i].data.fd);
 			} else if (events[i].data.fd == server_fd) { /* The listening socket is ready */
-				printf("accept %d\n", events[i].data.fd);
+				//printf("accept event on %d\n", i);
 				if ((client_fd = accept(server_fd, (struct sockaddr *) &client_addr,
 								&client_len)) < 0) {
 					return 1;
@@ -117,13 +116,13 @@ int main(int argc, char **argv)
 
 				/* Must make the socket to be non-blocking */
 				if (flags = fcntl(client_fd, F_GETFL, 0) == -1) {
-					perror("fcntl error");
+					//perror("fcntl error");
 					return 1;
 				}
 
 				flags |= O_NONBLOCK;
 				if (fcntl(client_fd, F_SETFL, flags) == -1) {
-					perror("fcntl error");
+					//perror("fcntl error");
 					return 1;
 				}
 
@@ -131,10 +130,11 @@ int main(int argc, char **argv)
 				e.data.fd = client_fd;
 				e.events = EPOLLIN | EPOLLET;
 				if (epoll_ctl(efd, EPOLL_CTL_ADD, client_fd, &e) == -1) {
-					perror("epoll_ctl error");
+					//perror("epoll_ctl error");
 					return 1;
 				}
 			} else {
+				//printf("read event on %d\n", i);
 				/* Finally a socket is ready to read */
 				int nr = 0;
 				int fd;
@@ -142,10 +142,9 @@ int main(int argc, char **argv)
 				fd = events[i].data.fd;
 				do {
 					nr = read(fd, buf, sizeof(buf));
-					printf("read %d from %d\n", nr, fd);
 					write(output_fd, buf, nr);
 				} while (nr > 0);
-				close(fd);
+				epoll_ctl(efd, EPOLL_CTL_DEL, fd, &events[i]);
 			}
 		}
 	}
