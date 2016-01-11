@@ -61,6 +61,13 @@ void GOMP_parallel_end(void)
     nested--;
 }
 
+void GOMP_parallel(void (*fn) (void *), void *data, unsigned num_threads, unsigned int flags){
+	GOMP_parallel_start(fn,data,num_threads);
+	fn(data);
+	GOMP_parallel_end();
+}//end GOMP_parallel
+
+
 /* This function should return true for just the first thread */
 bool GOMP_single_start(void)
 {

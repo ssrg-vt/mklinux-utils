@@ -29,6 +29,9 @@
 
 #include <stdio.h>
 
+//chris added
+#include <assert.h>
+
 #include "backend.h"
 #include "omp.h"
 
@@ -66,6 +69,7 @@ void *backend_get_tls(void)
  
 void backend_set_tls(void *data)
 {
+    assert(data);
     pthread_setspecific(pthread_key, data);
 }
 
@@ -91,10 +95,12 @@ void backend_span_domain(int nos_threads, size_t stack_size)
 
 void backend_init(void)
 {
+
     int r = pthread_key_create(&pthread_key, NULL);
     if (r != 0) {
         printf("pthread_key_create failed\n");
     }
+   printf("backend_init success!\n");
 }
 
 void backend_exit(void)

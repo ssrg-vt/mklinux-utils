@@ -8,29 +8,56 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-#CFLAGS = -DPOSIX -DNUMA -g -m64
-CFLAGS = -DPOSIX -g -m64
+# original
+CFLAGS = -DPOSIX -g -m64 -fno-stack-protector -ffunction-sections -fdata-sections -D__X86
+
+COMMON_CFLAGS=-fno-stack-protector -ffunction-sections -fdata-sections
+CFLAGS_X86 = -DPOSIX -g -m64 -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/musl-1.1.10/include -D__X86
+CFLAGS_AARCH64 = -DPOSIX -g -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/install/aarch64-musl/include -D__AARCH64
 OTHERS = -O2
 
-all: libbomp.a libpomp.a
-	
+CC_AARCH64 = aarch64-linux-gnu-gcc
 
-libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
-	$(AR) -q $@ $^
 
+#all: libbomp.a libpomp.a
+all: libbomp_x86.a libbomp_aRM.a
+
+#libbomp.a: linux_backend.o omp.o parallel.o processing.o self_info.o
+#	
 #cthread.o:
 #	$(CC) $(CFLAGS) -c cthread.c $(OTHERS)
 libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
+#	$(AR) -q $@ $^
+
+libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o
 	$(AR) -q $@ $^
 
+linux_backend_arm.o: linux_backend.c
+	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c linux_backend.c -o $@ 
+
+omp_arm.o: omp.c
+	$(CC_AARCH64) $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -o $@ -c omp.c
+
+parallel_arm.o: parallel.c
+	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c parallel.c -o $@
+
+processing_arm.o: processing.c
+	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c processing.c -o $@
+
+self_info_arm.o: self_info.c
+	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c self_info.c -o $@
+
+libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+
 tests: cthread.o
-	$(CC) $(CFLAGS) -o test-cthread tst-cthread.c $^
-	$(CC) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
-	$(CC) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^
-	$(CC) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
-	$(CC) $(CFLAGS) -o test-cthread4 tst-cthread4.c $^
-	$(CC) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
-	$(CC) $(CFLAGS) -o test-synchmalloc tst-synchmalloc.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread tst-cthread.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread1 tst-cthread1.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread2 tst-cthread2.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread3 tst-cthread3.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread4 tst-cthread4.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-oddstacklimit tst-oddstacklimit.c $^
+	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-synchmalloc tst-synchmalloc.c $^
 
 clean:
-	rm -f *.o libbomp.a libpomp.a test-*
+	rm -f *.o libbomp_aRM.a libbomp_x86.a libpomp.a test-*
