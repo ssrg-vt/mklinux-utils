@@ -1,0 +1,13 @@
+Only in openldap-2.4.43-fix/: openldap-2.4.43
+diff -bur openldap-2.4.43/tests/run openldap-2.4.43-fix/tests/run
+--- openldap-2.4.43/tests/run	2016-01-20 21:40:31.098126781 -0500
++++ openldap-2.4.43-fix/tests/run	2016-01-21 14:48:54.695709736 -0500
+@@ -13,6 +13,8 @@
+ ## top-level directory of the distribution or, alternatively, at
+ ## <http://www.OpenLDAP.org/license.html>.
+ 
++## Because the secondary cannot set PWD properly, we need to do a cd manually -Wen
++cd /home/wen/Projects/mklinux-utils/custom_ramdisk/packages/slapd/openldap-2.4.43-fix/tests
+ USAGE="$0 [-b <backend>] [-c] [-k] [-l #] [-p] [-s {ro|rp}] [-u] [-w] <script>"
+ 
+ # configure generated

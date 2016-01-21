@@ -12,14 +12,27 @@ if [ ! -f "$file" ]; then
     wget "$url"
 fi
 # unpack
-tar -xzf "$file"
+#tar -xzf "$file"
 # compile
-( cd "$dir"; ./configure "--enable-debug"; make; make depend )
-# copy to image
 server="$dir/servers/slapd/slapd"
+if [ ! -f "$server" ]; then
+#    The following line is for automatic instrumentation
+#    ( cd "$dir"; ./configure CC=clang CFLAGS="-O2 -Xclang -load -Xclang /home/wen/LLVMBalthasar.so"; make -j32; make depend )
+    ( cd "$dir"; ./configure; make -j32; make depend )
+fi
+# copy to image
 ( . "${scripts_dir}/copy_exec.sh" "$server" "$image_root")
 config="$dir/servers/slapd/slapd.conf"
 cp "$config" "${image_root}/"$(dirname "$server")"/slapd.conf"
+# copy other server files
+servers="$dir/servers"
+cp -r "$servers" "${image_root}/"$(dirname "$servers")
+# copy the tests
+tests="$dir/tests"
+cp -r "$tests" "${image_root}/"$(dirname "$tests")
+# copy the clients
+clients="$dir/clients"
+cp -r "$clients" "${image_root}/"$(dirname "$clients")
 
 # remove the dir where we unpacked?
 # rm -r "$dir"
