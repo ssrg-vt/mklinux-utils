@@ -7,7 +7,7 @@ diff -bur openldap-2.4.43/tests/run openldap-2.4.43-fix/tests/run
  ## <http://www.OpenLDAP.org/license.html>.
  
 +## Because the secondary cannot set PWD properly, we need to do a cd manually -Wen
-+cd /home/wen/Projects/mklinux-utils/custom_ramdisk/packages/slapd/openldap-2.4.43-fix/tests
++cd /home/wen/Projects/mklinux-utils/custom_ramdisk/packages/slapd/openldap-2.4.43/tests
  USAGE="$0 [-b <backend>] [-c] [-k] [-l #] [-p] [-s {ro|rp}] [-u] [-w] <script>"
  
  # configure generated
