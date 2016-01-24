@@ -10,6 +10,6 @@ then
 else
 	echo "switching to poopcorn ns! Replication degree requested is $1"
 	echo $1 > /proc/popcorn_namespace
-	exec bash
+	exec /bin/busybox sh
 fi
 
