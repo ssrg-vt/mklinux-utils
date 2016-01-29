@@ -22,7 +22,7 @@ readonly tunnel="$mklinux_utils/tunnel"
 ( . "${scripts_dir}/copy_exec.sh" "$tunnel" "$image_root" "/bin/tunnel" )
 
 # set up udhcpc
-readonly udhcpc_default_script="/etc/udhcpc/default.script"
+readonly udhcpc_default_script="/usr/share/udhcpc/default.script"
 if [ ! -f "$udhcpc_default_script" ]; then
     echo >&2 "error: $udhcpc_default_script not found. Aborting"
     exit 1

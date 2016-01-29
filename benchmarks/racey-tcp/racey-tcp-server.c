@@ -32,6 +32,7 @@ void* racey_worker(void* data)
 	int fault_count = 0;
 	int n = 0;
 	char buf[256];
+	int tid = *(int *)data;
 
 	while (barrier == 0) {}
 
@@ -41,33 +42,32 @@ void* racey_worker(void* data)
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			if ( client_idx>0 && client_fds[client_idx] > 0) {
+			if ( client_idx>=0 && client_fds[client_idx] > 0) {
 				fd = client_fds[client_idx];
 				client_fds[client_idx] = -1;
 				client_idx --;
 				fault_count ++;
+				syscall(319);
 				pthread_mutex_unlock(&client_fds_lock);
+				syscall(320);
 				break;
 			}
+			syscall(319);
 			pthread_mutex_unlock(&client_fds_lock);
-			//syscall(320);
+			syscall(320);
 		}
-
-		if (fault_count == 5) {
-			syscall(318);
-		}
-		/* Write the shit to the file */
+		syscall(321, 1);
 		do {
 			syscall(319);
-			n = read(fd, buf, sizeof(buf));
+			//n = read(fd, buf, sizeof(buf));
+			n = recv(fd, buf + 10, sizeof(buf), 0);
 			syscall(320);
+			sprintf(buf, "\n%d ", tid);
 			syscall(319);
 			write(output_fd, buf, n);
 			syscall(320);
 		} while (n > 0);
-		syscall(319);
 		close(fd);
-		syscall(320);
 	}
 }
 
@@ -80,6 +80,7 @@ int main(int argc, char **argv)
 	int server_fd;
 	int client_fd;
 	int i;
+	int tinfo[WORKER_NUM];
 	pthread_t threads[WORKER_NUM];
 	pthread_attr_t attr;
 
@@ -121,7 +122,8 @@ int main(int argc, char **argv)
 	barrier = 0;
 	for (i = 0; i < WORKER_NUM; i++) {
 		client_fds[i] = -1;
-		if (pthread_create(&threads[i], &attr, racey_worker, NULL) < 0) {
+		tinfo[i] = i;
+		if (pthread_create(&threads[i], &attr, racey_worker, &tinfo[i]) < 0) {
 			return 1;
 		}
 	}
@@ -134,6 +136,7 @@ int main(int argc, char **argv)
 	for (;;) {
 		/* Accept whatever is coming to me */
 		client_len = sizeof(client_addr);
+		syscall(321, 2);
 		syscall(319);
 		if ((client_fd = accept(server_fd, (struct sockaddr *) &client_addr,
 						&client_len)) < 0) {
@@ -152,11 +155,14 @@ int main(int argc, char **argv)
 				//syscall(320);
 				client_idx ++;
 				client_fds[client_idx] = client_fd;
+				syscall(319);
 				pthread_mutex_unlock(&client_fds_lock);
+				syscall(320);
 				break;
 			}
+			 syscall(319);
 			pthread_mutex_unlock(&client_fds_lock);
-			//syscall(320);
+			syscall(320);
 		}
 	}
 }
