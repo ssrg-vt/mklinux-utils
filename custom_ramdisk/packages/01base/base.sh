@@ -22,7 +22,7 @@ readonly tunnel="$mklinux_utils/tunnel"
 ( . "${scripts_dir}/copy_exec.sh" "$tunnel" "$image_root" "/bin/tunnel" )
 
 # set up udhcpc
-readonly udhcpc_default_script="/usr/share/udhcpc/default.script"
+readonly udhcpc_default_script="/etc/udhcpc/default.script"
 if [ ! -f "$udhcpc_default_script" ]; then
     echo >&2 "error: $udhcpc_default_script not found. Aborting"
     exit 1
@@ -71,5 +71,9 @@ copy_files() {
 
 }
 copy_files
+
+# update the IP address in rc.S
+readonly ip=$(ifconfig | awk '/eth0/ { getline; print $0 }' | awk '{print $2}' | cut -d : -f 2)
+sed -i.bak "s/MYIP/${ip}/g" "${image_root}/etc/init.d/rc.S"
 
 rm "./profile"
