@@ -36,6 +36,7 @@ void* racey_worker(void* data)
 
 	while (barrier == 0) {}
 
+	syscall(321, 1);
 	for (;;) {
 		/* Waiting for an availiable socket */
 		for (;;) {
@@ -47,26 +48,21 @@ void* racey_worker(void* data)
 				client_fds[client_idx] = -1;
 				client_idx --;
 				fault_count ++;
-				syscall(319);
 				pthread_mutex_unlock(&client_fds_lock);
-				syscall(320);
 				break;
 			}
-			syscall(319);
 			pthread_mutex_unlock(&client_fds_lock);
-			syscall(320);
 		}
-		syscall(321, 1);
+
 		do {
-			syscall(319);
-			//n = read(fd, buf, sizeof(buf));
-			n = recv(fd, buf + 10, sizeof(buf), 0);
-			syscall(320);
-			sprintf(buf, "\n%d ", tid);
+			n = read(fd, buf, sizeof(buf));
+			//n = recv(fd, buf + 10, sizeof(buf), 0);
+			sprintf(buf, "\n%d, %d", tid, fd);
 			syscall(319);
 			write(output_fd, buf, n);
 			syscall(320);
 		} while (n > 0);
+
 		close(fd);
 	}
 }
@@ -134,9 +130,9 @@ int main(int argc, char **argv)
 	}
 
 	for (;;) {
+		syscall(321, 0);
 		/* Accept whatever is coming to me */
 		client_len = sizeof(client_addr);
-		syscall(321, 2);
 		syscall(319);
 		if ((client_fd = accept(server_fd, (struct sockaddr *) &client_addr,
 						&client_len)) < 0) {
@@ -145,7 +141,7 @@ int main(int argc, char **argv)
 		}
 		syscall(320);
 		//syscall(320);
-
+		syscall(321, 0);
 		while (1) {
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
@@ -155,14 +151,10 @@ int main(int argc, char **argv)
 				//syscall(320);
 				client_idx ++;
 				client_fds[client_idx] = client_fd;
-				syscall(319);
 				pthread_mutex_unlock(&client_fds_lock);
-				syscall(320);
 				break;
 			}
-			 syscall(319);
 			pthread_mutex_unlock(&client_fds_lock);
-			syscall(320);
 		}
 	}
 }
