@@ -124,7 +124,10 @@ echo "rd_cmdline" >> $LOGFILE
 echo "$_CMDLINE" >> $LOGFILE
 
 echo "MKLINUX: loading $KERNEL at address $BOOT_ADDR"
-RESULT=`kexec -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
+
+KEXEC=/home/giuliano/mklinux-kexec/build/sbin/kexec
+
+RESULT=`$KEXEC -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
 if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (loading kernel into memory):"
@@ -135,7 +138,7 @@ fi
 echo "$RESULT" >> $LOGFILE
 
 echo "MKLINUX: booting kernel on CPU $CPU"
-RESULT=`kexec -d -a $BOOT_ADDR -b $CPU 2>&1`
+RESULT=`$KEXEC -d -a $BOOT_ADDR -b $CPU 2>&1`
 if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (starting a secondary kernel):"
