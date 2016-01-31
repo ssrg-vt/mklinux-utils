@@ -125,7 +125,7 @@ echo "$_CMDLINE" >> $LOGFILE
 
 echo "MKLINUX: loading $KERNEL at address $BOOT_ADDR"
 
-KEXEC=/home/giuliano/mklinux-kexec/build/sbin/kexec
+KEXEC="../mklinux-kexec/build/sbin/kexec"
 
 RESULT=`$KEXEC -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
 if [ $? -ne 0 ]
