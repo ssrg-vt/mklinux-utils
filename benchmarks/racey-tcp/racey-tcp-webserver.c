@@ -306,10 +306,11 @@ void* racey_worker(void* data)
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			syscall(319);
-			while (have_fd == 0)
+			while (have_fd == 0) {
+				syscall(319);
 				pthread_cond_wait(&cv, &client_fds_lock);
-			syscall(320);
+				syscall(320);
+			}
 			if ( client_idx>=0 && client_fds[client_idx] > 0) {
 				fd = client_fds[client_idx];
 				client_fds[client_idx] = -1;
