@@ -20,12 +20,15 @@
 #define OUTPUT_FILE "./output.txt"
 #define MAX_BUFF (1024*4)
 
+pthread_cond_t cv = PTHREAD_COND_INITIALIZER;
+
 int client_fds[WORKER_NUM];
 int client_idx;
 int output_fd;
 int barrier;
 int connection_before_error;
 int fault_count = 0;
+int have_fd = 0;
 pthread_mutex_t client_fds_lock;
 pthread_mutex_t file_lock;
 
@@ -84,9 +87,9 @@ int send_new(int fd, char *msg, int len) {
 	if(len==0){
 		len= strlen(msg);
 	}
-	//syscall(319);
+	syscall(319);
 	ret= send(fd, msg, len, 0);
-	//syscall(320);
+	syscall(320);
 	if (ret == -1) {
 		printf("Error in send\n");
 	}
@@ -139,9 +142,9 @@ int recv_new(int fd, char *buffer) {
 	char *p = buffer; // Use of a pointer to the buffer rather than dealing with the buffer directly
 	int eol_matched = 0; // Use to check whether the recieved byte is matched with the buffer byte or not
 	int ret;
-	//syscall(319);	
+	syscall(319);	
 	ret= recv(fd, p, 1, 0);
-	//syscall(320);
+	syscall(320);
 	while (ret != 0) // Start receiving 1 byte at a time
 	{
 		if (*p == EOL[eol_matched]) // if the byte matches with the first eol byte that is '\r'
@@ -156,9 +159,9 @@ int recv_new(int fd, char *buffer) {
 			eol_matched = 0;
 		}
 		p++; // Increment the pointer to receive next byte
-		//syscall(319);
+		syscall(319);
 		ret= recv(fd, p, 1, 0);
-		//syscall(320);
+		syscall(320);
 	}
 	return (0);
 }
@@ -233,7 +236,9 @@ int connection(int fd, char* buff) {
 							int bytes_read;
 							while (total_bytes_sent < length) {
 								
+								syscall(319);
 								bytes_read= read(fd1, buff, MAX_BUFF);
+								syscall(320);
 								if(bytes_read > 0){
 									//if ((bytes_sent = sendfile(fd, fd1, 0,
 									//				length - total_bytes_sent)) <= 0) {
@@ -251,7 +256,9 @@ int connection(int fd, char* buff) {
 
 						}
 					}	
+					syscall(319);
 					close(fd1);
+					syscall(320);
 					goto out;
 				}
 				int size = sizeof(extensions) / sizeof(extensions[0]);
@@ -269,10 +276,10 @@ int connection(int fd, char* buff) {
 	}
 
 out:
-	//syscall(319);
+	syscall(319);
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
-	//syscall(320);
+	syscall(320);
 }
 
 void* racey_worker(void* data)
@@ -299,18 +306,24 @@ void* racey_worker(void* data)
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			syscall(321, 1);
+			syscall(319);
+			while (have_fd == 0)
+				pthread_cond_wait(&cv, &client_fds_lock);
+			syscall(320);
 			if ( client_idx>=0 && client_fds[client_idx] > 0) {
 				fd = client_fds[client_idx];
 				client_fds[client_idx] = -1;
 				client_idx --;
 				fault_count ++;
+				if (client_idx == -1) {
+					have_fd = 0;
+				}
 				pthread_mutex_unlock(&client_fds_lock);
+				syscall(321, 1);
 				break;
 			}
 			pthread_mutex_unlock(&client_fds_lock);
 		}
-		syscall(321, 1);
 
 	/*	if(fault_count==connection_before_error)
 			syscall(318);
@@ -401,26 +414,29 @@ int main(int argc, char **argv)
 	}
 
 	for (;;) {
-		syscall(321, 0);
 		/* Accept whatever is coming to me */
 		client_len = sizeof(client_addr);
+		syscall(321, 20);
 		syscall(319);
 		if ((client_fd = accept(server_fd, (struct sockaddr *) &client_addr,
 						&client_len)) < 0) {
 			syscall(320);
 			return 1;
 		}
-		syscall(321, 10);
 		syscall(320);
 		while (1) {
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			syscall(321, 2);
+			syscall(321, 3);
 			if (client_idx < WORKER_NUM -1) {
 				/* Feed the socket to workers */
 				client_idx ++;
+				have_fd = 1;
 				client_fds[client_idx] = client_fd;
+				syscall(319);
+				pthread_cond_signal(&cv);
+				syscall(320);
 				pthread_mutex_unlock(&client_fds_lock);
 				break;
 			}
