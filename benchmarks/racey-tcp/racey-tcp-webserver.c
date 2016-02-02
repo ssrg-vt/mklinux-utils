@@ -18,7 +18,7 @@
 
 #define WORKER_NUM 5
 #define OUTPUT_FILE "./output.txt"
-#define MAX_BUFF (1024*4)
+#define MAX_BUFF (500)
 
 int client_fds[WORKER_NUM];
 int client_idx;
@@ -284,12 +284,12 @@ void* racey_worker(void* data)
 	struct sockaddr_in myAddr;
         socklen_t mylen;
 
-	char *buff= malloc(MAX_BUFF);
+	/*char *buff= malloc(MAX_BUFF);
 	if(!buff){
 		printf("Impossible to malloc\n");
 		exit(1);
-	}
-	//char buff[500];
+	}*/
+	char buff[500];
 
 	while (barrier == 0) {}
 
@@ -332,7 +332,7 @@ void* racey_worker(void* data)
 		//mylen= sizeof(struct sockaddr_in);
 		//getpeername(fd, (struct sockaddr *) &myAddr, &mylen);
 		//printf("thread %d handling connection port %d\n", tid, ntohs(myAddr.sin_port));
-		connection(fd, buff);
+		connection(fd, &buff);
 	}
 }
 
@@ -346,6 +346,7 @@ int main(int argc, char **argv)
 	int client_fd;
 	int i;
 	int tinfo[WORKER_NUM];
+	int accepted= 0;
 	pthread_t threads[WORKER_NUM];
 	pthread_attr_t attr;
 
@@ -410,6 +411,10 @@ int main(int argc, char **argv)
 			syscall(320);
 			return 1;
 		}
+		accepted++;
+		if(accepted==connection_before_error)
+			syscall(318);
+
 		syscall(321, 10);
 		syscall(320);
 		while (1) {

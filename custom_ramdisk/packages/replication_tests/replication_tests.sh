@@ -19,3 +19,10 @@ command -v gcc >/dev/null 2>&1 || fail "gcc not found"
 ( cd ${src_dir}; gcc -static -pthread -o racey-tcp-server "./${server_c}" ) || fail "failed to compile ${server_c}"i
 
 ( . "${scripts_dir}/copy_exec.sh" "${src_dir}/racey-tcp-server" "$target_dir/" "racey-tcp-server")
+
+server_c="racey-tcp-webserver.c"
+command -v gcc >/dev/null 2>&1 || fail "gcc not found"
+( cd ${src_dir}; gcc -static -pthread -o racey-tcp-webserver "./${server_c}" ) || fail "failed to compile ${server_c}"i
+
+( . "${scripts_dir}/copy_exec.sh" "${src_dir}/racey-tcp-webserver" "$target_dir/" "racey-tcp-webserver")
+

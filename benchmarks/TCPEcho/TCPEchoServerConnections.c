@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	output= fopen("server_connections.txt", "w+");
+	output= fopen("./ramcache/server_connections.txt", "w+");
 	if(output==NULL){
 		fprintf(stderr, "Impossible to open file\n");
 		exit(1);

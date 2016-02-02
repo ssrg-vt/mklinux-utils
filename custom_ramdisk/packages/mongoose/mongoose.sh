@@ -1,5 +1,6 @@
 #! /bin/sh
 #
+set -eu -o pipefail
 
 #VER=3.6
 #if [ ! -f mongoose-$VER.tgz ]; then
@@ -10,4 +11,7 @@
 #make linux
 #mv mongoose ../mg-server
 #cd ..
-( . "${scripts_dir}/copy_exec.sh" "mg-server" "$image_root")
+#( . "${scripts_dir}/copy_exec.sh" "mg-server" "$image_root")
+cp mg-server $image_root/
+cp mg-server /
+

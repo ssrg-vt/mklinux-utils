@@ -35,7 +35,7 @@ void HandleTCPClient(int clntSocket)
     fprintf(output,"size file: %i\n", file_size);
     fflush(output);
 	
-    write_to= open("received_from_client.txt", O_WRONLY | O_CREAT, 0777);
+    write_to= open("./ramcache/received_from_client.txt", O_WRONLY | O_CREAT, 0777);
     if(write_to==-1){
         fprintf(stderr, "Impossible to open file\n");
         exit(1);

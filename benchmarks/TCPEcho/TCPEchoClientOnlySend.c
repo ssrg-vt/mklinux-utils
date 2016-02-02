@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
     }*/
     recv(sock, echoBuffer, RCVBUFSIZE, 0);
     
-    printf("received %s\n", echoBuffer);
+    //printf("received %s\n", echoBuffer);
     
     close(read_from);
     close(sock);
