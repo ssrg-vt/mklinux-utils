@@ -1,0 +1,75 @@
+#! /bin/sh
+# $OpenLDAP$
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2015 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
+
+# The default debug level logs more than 1Gb:
+case "$SLAPD_DEBUG_MT_HOT/$SLAPD_DEBUG" in
+/0 | /0x0 | /0X0 | /none | /NONE | /32768 | /0x8000 | 0X8000 | /0100000) :;;
+*) SLAPD_DEBUG=${SLAPD_DEBUG_MT_HOT-stats} ;;
+esac
+
+echo "running defines.sh"
+. $SRCDIR/scripts/defines.sh
+
+if test $MONITORDB = "no" ; then 
+	echo "Monitor backend not available, test skipped"
+	exit 0
+fi 
+
+if test x$TESTLOOPS = x ; then
+	TESTLOOPS=50
+fi
+
+mkdir -p $TESTDIR $DBDIR1
+
+#
+# Populate and start up slapd server with some random data
+#
+
+echo "Running slapadd to build slapd database..."
+. $CONFFILTER $BACKEND $MONITORDB < $MCONF > $ADDCONF
+$SLAPADD -f $ADDCONF -l $LDIFORDERED
+RC=$?
+if test $RC != 0 ; then
+	echo "slapadd failed ($RC)!"
+	exit $RC
+fi
+
+echo "Running slapindex to index slapd database..."
+. $CONFFILTER $BACKEND $MONITORDB < $CONF > $CONF1
+$SLAPINDEX -f $CONF1
+RC=$?
+if test $RC != 0 ; then
+	echo "warning: slapindex failed ($RC)"
+	echo "  assuming no indexing support"
+fi
+
+echo "Starting slapd on TCP/IP port $PORT1..."
+echo $SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING
+$SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING
+#$SLAPD -f $CONF1 -h $URI1 -d $LVL $TIMING 
+PID=$!
+if test $WAIT != 0 ; then
+    echo PID $PID
+    read foo
+fi
+KILLPIDS="$PID"
+
+sleep 1
+
+echo "SERVER STARTED, DO THE CLIENT NOW"
+
+echo ">>>>> Test succeeded"
+
+exit 0
