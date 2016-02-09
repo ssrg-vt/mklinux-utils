@@ -66,6 +66,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <jemalloc/jemalloc.h>
 
 #if defined(_WIN32) && !defined(__SYMBIAN32__) // Windows specific
 #define _WIN32_WINNT 0x0400 // To make it link in VS2005
@@ -1494,12 +1495,20 @@ static int64_t push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf,
       if (ferror(fp))
         n = -1;
     } else {
-      syscall(319);
-      n = send(sock, buf + sent, (size_t) k, MSG_NOSIGNAL);
-      syscall(320);
+
+	/*struct sockaddr_in myAddr;
+    	socklen_t mylen;
+    	mylen= sizeof(struct sockaddr_in);
+    	getpeername(sock, (struct sockaddr *) &myAddr, &mylen);
+	*/
+      	syscall(319);
+      	//printf("thread %d handling connection port %d send start\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
+      	n = send(sock, buf + sent, (size_t) k, MSG_NOSIGNAL);
+	//printf("thread %d handling connection port %d send end\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));    
+  	syscall(320);
+
     }
 
-    printf("%d sent %d\n", pthread_self(), n);
     if (n < 0)
       break;
 
@@ -1521,7 +1530,11 @@ static int wait_until_socket_is_readable(struct mg_connection *conn) {
   do {
     pfd.fd = conn->client.sock;
     pfd.events = POLLIN;
+    syscall(319);
+    //printf("thread %d calling poll start\n", syscall(__NR_gettid));
     result = poll(&pfd, 1, 200);
+    //printf("thread %d calling poll end\n", syscall(__NR_gettid));
+    syscall(320);
     if (result == 0 && conn->ssl != NULL) {
       result = SSL_pending(conn->ssl);
     }
@@ -1549,9 +1562,18 @@ static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len) {
   } else if (conn->ssl != NULL) {
     nread = SSL_read(conn->ssl, buf, len);
   } else {
+	
+    /*struct sockaddr_in myAddr;
+    socklen_t mylen;
+    mylen= sizeof(struct sockaddr_in);
+    getpeername(conn->client.sock, (struct sockaddr *) &myAddr, &mylen);
+    */
     syscall(319);
+    //printf("thread %d handling connection port %d recv\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
     nread = recv(conn->client.sock, buf, (size_t) len, 0);
+    //printf("thread %d handling connection port %d recv end\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
     syscall(320);
+
   }
 
   return conn->ctx->stop_flag ? -1 : nread;
@@ -4909,7 +4931,7 @@ static int consume_socket(struct mg_context *ctx, struct socket *sp) {
 
   // If the queue is empty, wait. We're idle at this point.
   while (ctx->sq_head == ctx->sq_tail && ctx->stop_flag == 0) {
-    syscall(321, 4);
+    //syscall(321, 4);
     syscall(319);
     pthread_cond_wait(&ctx->sq_full, &ctx->mutex);
     syscall(320);
@@ -5047,7 +5069,7 @@ int killnumber = 0;
 static void *master_thread(void *thread_func_param) {
   struct mg_context *ctx = thread_func_param;
   struct pollfd *pfd;
-  int i;
+  int i, ret;
   int pollcnt = 0;
 
   // Increase priority of the master thread
@@ -5070,17 +5092,23 @@ static void *master_thread(void *thread_func_param) {
 
 	// This is a manually tuned tick bump. The number should be the number
 	// of requests you are sending.
-	if (pollcnt == 10) {
+	syscall(319);
+	//printf("thread %d calling poll start\n", syscall(__NR_gettid));
+	ret= poll(pfd, ctx->num_listening_sockets, 200);
+	//printf("thread %d calling poll end\n", syscall(__NR_gettid));
+	syscall(320);
+
+	if (pollcnt == 30) {
 		syscall(321, 9999999);
 	}
-    if (poll(pfd, ctx->num_listening_sockets, 200) > 0) {
+    if ( ret > 0) {
       for (i = 0; i < ctx->num_listening_sockets; i++) {
         if (ctx->stop_flag == 0 && pfd[i].revents == POLLIN) {
           syscall(321, 35);
 
 	killnumber++;
-	if (killnumber == 2) {
-		syscall(318);
+	if (killnumber == 15) {
+		//syscall(318);
 	}
 		  pollcnt ++;
           accept_new_connection(&ctx->listening_sockets[i], ctx);

@@ -881,6 +881,7 @@ int main(int argc, char *argv[]) {
 }
 #else
 int main(int argc, char *argv[]) {
+  syscall(321, -1);
   init_server_name();
   start_mongoose(argc, argv);
   printf("%s started on port(s) %s with web root [%s]\n",
@@ -888,7 +889,6 @@ int main(int argc, char *argv[]) {
          mg_get_option(ctx, "document_root"));
   while (exit_flag == 0) {
     sleep(1);
-    syscall(321, 100000);
   }
   printf("Exiting on signal %d, waiting for all threads to finish...",
          exit_flag);

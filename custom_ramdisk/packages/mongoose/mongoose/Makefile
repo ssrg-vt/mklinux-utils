@@ -25,18 +25,19 @@ all:
 
 # To build with Lua, download and unzip Lua 5.2.1 source code into the
 # mongoose directory, and then add $(LUA_FLAGS) to CFLAGS below
+JEMALLOC_PATH= /usr/local
 LUA         = lua-5.2.1/src
 LUA_FLAGS   = -DUSE_LUA -I$(LUA) -L$(LUA) -llua -lm
 
-CFLAGS      = -std=c99 -O2 -W -Wall -pedantic $(COPT)
-LIB         = lib$(PROG).so$(MONGOOSE_LIB_SUFFIX)
+CFLAGS      = -std=c99 -O2 -W -Wall -pedantic $(COPT) -I${JEMALLOC_PATH}/include -L${JEMALLOC_PATH}/lib -Wl,-rpath,${JEMALLOC_PATH}/lib -ljemalloc
+LIB         = lib$(PROG).so$(MONGOOSE_LIB_SUFFIX) -I${JEMALLOC_PATH}/include -L${JEMALLOC_PATH}/lib -Wl,-rpath,${JEMALLOC_PATH}/lib -ljemalloc
 
 # Make sure that the compiler flags come last in the compilation string.
 # If not so, this can break some on some Linux distros which use
 # "-Wl,--as-needed" turned on by default  in cc command.
 # Also, this is turned in many other distros in static linkage builds.
 linux:
-	$(CC) mongoose.c main.c -o $(PROG) -ldl -pthread $(CFLAGS)
+	$(CC) mongoose.c main.c -o $(PROG) -ldl -g -pthread $(CFLAGS)
 
 bsd:
 	$(CC) mongoose.c main.c -pthread -o $(PROG) $(CFLAGS)
