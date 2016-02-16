@@ -38,6 +38,7 @@
 
 void backend_set_numa(unsigned id)
 {
+#if 0
 #ifdef NUMA
     struct bitmask *bm = numa_allocate_cpumask();
     numa_bitmask_setbit(bm, id);
@@ -48,6 +49,7 @@ void backend_set_numa(unsigned id)
     CPU_ZERO(&cpu_mask);
     CPU_SET(id, &cpu_mask);
     sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask);
+#endif
 #endif
 }
 
