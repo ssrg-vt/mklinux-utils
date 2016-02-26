@@ -445,7 +445,7 @@ struct file {
 #define STRUCT_FILE_INITIALIZER {0, 0, 0, NULL, NULL}
 
 int bump = 0;
-static pthread_mutex_t bump_lock;
+static pthread_mutex_t time_lock;
 
 // Describes listening socket, or socket which was accept()-ed by the master
 // thread and queued for future handling by the worker thread.
@@ -1483,8 +1483,6 @@ static int64_t push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf,
 
   sent = 0;
   while (sent < len) {
-    //syscall(321, 10);
-
     // How many bytes we send in this iteration
     k = len - sent > INT_MAX ? INT_MAX : (int) (len - sent);
 
@@ -1501,11 +1499,11 @@ static int64_t push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf,
     	mylen= sizeof(struct sockaddr_in);
     	getpeername(sock, (struct sockaddr *) &myAddr, &mylen);
 	*/
-      	syscall(319);
+      	//syscall(319);
       	//printf("thread %d handling connection port %d send start\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
       	n = send(sock, buf + sent, (size_t) k, MSG_NOSIGNAL);
 	//printf("thread %d handling connection port %d send end\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));    
-  	syscall(320);
+  	//syscall(320);
 
     }
 
@@ -1530,11 +1528,11 @@ static int wait_until_socket_is_readable(struct mg_connection *conn) {
   do {
     pfd.fd = conn->client.sock;
     pfd.events = POLLIN;
-    syscall(319);
+    //syscall(319);
     //printf("thread %d calling poll start\n", syscall(__NR_gettid));
-    result = poll(&pfd, 1, 200);
+    result = poll(&pfd, 1, -1);
     //printf("thread %d calling poll end\n", syscall(__NR_gettid));
-    syscall(320);
+    //syscall(320);
     if (result == 0 && conn->ssl != NULL) {
       result = SSL_pending(conn->ssl);
     }
@@ -1548,15 +1546,14 @@ static int wait_until_socket_is_readable(struct mg_connection *conn) {
 // Return negative value on error, or number of bytes read on success.
 static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len) {
   int nread;
-  //syscall(321, 30);
 
   if (fp != NULL) {
     // Use read() instead of fread(), because if we're reading from the CGI
     // pipe, fread() may block until IO buffer is filled up. We cannot afford
     // to block and must pass all read bytes immediately to the client.
-    syscall(319);
+    //syscall(319);
     nread = read(fileno(fp), buf, (size_t) len);
-    syscall(320);
+    //syscall(320);
   } else if (!conn->must_close && !wait_until_socket_is_readable(conn)) {
     nread = -1;
   } else if (conn->ssl != NULL) {
@@ -1568,11 +1565,11 @@ static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len) {
     mylen= sizeof(struct sockaddr_in);
     getpeername(conn->client.sock, (struct sockaddr *) &myAddr, &mylen);
     */
-    syscall(319);
+    //syscall(319);
     //printf("thread %d handling connection port %d recv\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
     nread = recv(conn->client.sock, buf, (size_t) len, 0);
     //printf("thread %d handling connection port %d recv end\n", syscall(__NR_gettid), ntohs(myAddr.sin_port));
-    syscall(320);
+    //syscall(320);
 
   }
 
@@ -1650,7 +1647,9 @@ int mg_write(struct mg_connection *conn, const void *buf, size_t len) {
         }
         sleep(1);
         conn->last_throttle_bytes = allowed;
+        //syscall(319);
         conn->last_throttle_time = time(NULL);
+        //syscall(320);
         buf = (char *) buf + n;
         total += n;
       }
@@ -1667,6 +1666,7 @@ int mg_printf(struct mg_connection *conn, const char *fmt, ...) {
   int len;
   va_list ap;
 
+  memset(mem, 0, MG_BUF_LEN);
   // Print in a local buffer first, hoping that it is large enough to
   // hold the whole message
   va_start(ap, fmt);
@@ -2813,7 +2813,11 @@ static int parse_range_header(const char *header, int64_t *a, int64_t *b) {
 }
 
 static void gmt_time_string(char *buf, size_t buf_len, time_t *t) {
+  syscall(319);
+  pthread_mutex_lock(&time_lock);
+  syscall(320);
   strftime(buf, buf_len, "%a, %d %b %Y %H:%M:%S GMT", gmtime(t));
+  pthread_mutex_unlock(&time_lock);
 }
 
 static void construct_etag(char *buf, size_t buf_len,
@@ -2834,17 +2838,18 @@ static void handle_file_request(struct mg_connection *conn, const char *path,
                                 struct file *filep) {
   char date[64], lm[64], etag[64], range[64];
   const char *msg = "OK", *hdr;
-  time_t curtime = time(NULL);
+  time_t curtime;
   int64_t cl, r1, r2;
   struct vec mime_vec;
   int n;
+
+  curtime = time(NULL);
 
   get_mime_type(conn->ctx, path, &mime_vec);
   cl = filep->size;
   conn->status_code = 200;
   range[0] = '\0';
 
-  //syscall(321, 14);
   if (!mg_fopen(conn, path, "rb", filep)) {
     send_http_error(conn, 500, http_500_error,
         "fopen(%s): %s", path, strerror(ERRNO));
@@ -2869,21 +2874,26 @@ static void handle_file_request(struct mg_connection *conn, const char *path,
 
   // Prepare Etag, Date, Last-Modified headers. Must be in UTC, according to
   // http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3
-  gmt_time_string(date, sizeof(date), &curtime);
-  gmt_time_string(lm, sizeof(lm), &filep->modification_time);
-  construct_etag(etag, sizeof(etag), filep);
+  memset(date, 0, 64);
+  memset(lm, 0, 64);
+  memset(range, 0, 64);
+  memset(etag, 0, 64);
+  gmt_time_string(date, 64, &curtime);
+  gmt_time_string(lm, 64, &filep->modification_time);
+  //construct_etag(etag, 64, filep);
 
   (void) mg_printf(conn,
       "HTTP/1.1 %d %s\r\n"
       "Date: %s\r\n"
       "Last-Modified: %s\r\n"
-      "Etag: %s\r\n"
+      //"Etag: %s\r\n"
       "Content-Type: %.*s\r\n"
       "Content-Length: %" INT64_FMT "\r\n"
       "Connection: %s\r\n"
       "Accept-Ranges: bytes\r\n"
       "%s\r\n",
-      conn->status_code, msg, date, lm, etag, (int) mime_vec.len,
+      //conn->status_code, msg, date, lm, etag, (int) mime_vec.len,
+      conn->status_code, msg, date, lm, (int) mime_vec.len,
       mime_vec.ptr, cl, suggest_connection_header(conn), range);
 
   if (strcmp(conn->request_info.request_method, "HEAD") != 0) {
@@ -4708,9 +4718,7 @@ static void close_socket_gracefully(struct mg_connection *conn) {
   setsockopt(sock, SOL_SOCKET, SO_LINGER, (char *) &linger, sizeof(linger));
 
   // Send FIN to the client
-  syscall(319);
   (void) shutdown(sock, SHUT_WR);
-  syscall(320);
   set_non_blocking_mode(sock);
 
 #if defined(_WIN32)
@@ -4725,15 +4733,12 @@ static void close_socket_gracefully(struct mg_connection *conn) {
 #endif
 
   // Now we know that our FIN is ACK-ed, safe to close
-  syscall(319);
   (void) closesocket(sock);
-  syscall(320);
 }
 
 static void close_connection(struct mg_connection *conn) {
   conn->must_close = 1;
 
-  //syscall(321, 20);
   if (conn->ssl) {
     SSL_free(conn->ssl);
     conn->ssl = NULL;
@@ -4880,7 +4885,7 @@ static void process_new_connection(struct mg_connection *conn) {
                strcmp(ri->http_version, "1.1")) {
       // Request seems valid, but HTTP version is strange
       send_http_error(conn, 505, "HTTP version not supported", "%s", "");
-      log_access(conn);
+      //log_access(conn);
     } else {
       // Request is valid, handle it
       if ((cl = get_header(ri, "Content-Length")) != NULL) {
@@ -4895,7 +4900,7 @@ static void process_new_connection(struct mg_connection *conn) {
       handle_request(conn);
       conn->request_info.ev_data = (void *) conn->status_code;
       call_user(conn, MG_REQUEST_COMPLETE);
-      log_access(conn);
+      //log_access(conn);
     }
     if (ri->remote_user != NULL) {
       free((void *) ri->remote_user);
@@ -4931,10 +4936,9 @@ static int consume_socket(struct mg_context *ctx, struct socket *sp) {
 
   // If the queue is empty, wait. We're idle at this point.
   while (ctx->sq_head == ctx->sq_tail && ctx->stop_flag == 0) {
-    //syscall(321, 4);
-    syscall(319);
+    //syscall(319);
     pthread_cond_wait(&ctx->sq_full, &ctx->mutex);
-    syscall(320);
+    //syscall(320);
   }
 
   // If we're stopping, sq_head may be equal to sq_tail.
@@ -4951,10 +4955,9 @@ static int consume_socket(struct mg_context *ctx, struct socket *sp) {
     }
   }
 
-  syscall(319);
   (void) pthread_cond_signal(&ctx->sq_empty);
-  syscall(320);
   (void) pthread_mutex_unlock(&ctx->mutex);
+  syscall(321, 22);
 
   return !ctx->stop_flag;
 }
@@ -5005,9 +5008,7 @@ static void *worker_thread(void *thread_func_param) {
   (void) pthread_mutex_lock(&ctx->mutex);
   syscall(320);
   ctx->num_threads--;
-  syscall(319);
   (void) pthread_cond_signal(&ctx->cond);
-  syscall(320);
   assert(ctx->num_threads >= 0);
   (void) pthread_mutex_unlock(&ctx->mutex);
 
@@ -5024,9 +5025,9 @@ static void produce_socket(struct mg_context *ctx, const struct socket *sp) {
   // If the queue is full, wait
   while (ctx->stop_flag == 0 &&
          ctx->sq_head - ctx->sq_tail >= (int) ARRAY_SIZE(ctx->queue)) {
-    syscall(319);
+    //syscall(319);
     (void) pthread_cond_wait(&ctx->sq_empty, &ctx->mutex);
-    syscall(320);
+    //syscall(320);
   }
 
   if (ctx->sq_head - ctx->sq_tail < (int) ARRAY_SIZE(ctx->queue)) {
@@ -5036,9 +5037,7 @@ static void produce_socket(struct mg_context *ctx, const struct socket *sp) {
     DEBUG_TRACE(("queued socket %d", sp->sock));
   }
 
-  syscall(319);
   (void) pthread_cond_signal(&ctx->sq_full);
-  syscall(320);
   (void) pthread_mutex_unlock(&ctx->mutex);
 }
 
@@ -5074,6 +5073,7 @@ static void *master_thread(void *thread_func_param) {
   struct pollfd *pfd;
   int i, ret;
   int pollcnt = 0;
+  int killcnt = 0;
 
   // Increase priority of the master thread
 #if defined(_WIN32)
@@ -5093,26 +5093,21 @@ static void *master_thread(void *thread_func_param) {
       pfd[i].events = POLLIN;
     }
 
-	// This is a manually tuned tick bump. The number should be the number
-	// of requests you are sending.
-	syscall(319);
+          if (killcnt == 30)
+              syscall(318);
+//	syscall(319);
 	//printf("thread %d calling poll start\n", syscall(__NR_gettid));
-	ret= poll(pfd, ctx->num_listening_sockets, 200);
+	ret= poll(pfd, ctx->num_listening_sockets, -1);
 	//printf("thread %d calling poll end\n", syscall(__NR_gettid));
-	syscall(320);
-	pollcnt ++;
-	if (pollcnt == 100000) {
-		syscall(321, 9999999);
-	}
+//	syscall(320);
+
     if ( ret > 0) {
       for (i = 0; i < ctx->num_listening_sockets; i++) {
         if (ctx->stop_flag == 0 && pfd[i].revents == POLLIN) {
-          //syscall(321, 35);
-
-	killnumber++;
-	if (killnumber == 50000) {
-		syscall(318);
-	}
+          killcnt ++;
+		if (killcnt == 50000) {^M
+                //syscall(318);^M
+        }^
           accept_new_connection(&ctx->listening_sockets[i], ctx);
         }
       }
@@ -5134,10 +5129,8 @@ static void *master_thread(void *thread_func_param) {
   (void) pthread_mutex_lock(&ctx->mutex);
   syscall(320);
   while (ctx->num_threads > 0) {
-    //syscall(321, 20);
-    syscall(319);
     (void) pthread_cond_wait(&ctx->cond, &ctx->mutex);
-    syscall(320);
+    //syscall(320);
   }
   (void) pthread_mutex_unlock(&ctx->mutex);
 
@@ -5191,7 +5184,6 @@ void mg_stop(struct mg_context *ctx) {
 
   // Wait until mg_fini() stops
   while (ctx->stop_flag != 2) {
-    //syscall(321, 10);
     (void) mg_sleep(10);
   }
   free_context(ctx);
