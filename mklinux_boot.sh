@@ -77,18 +77,18 @@ if [ -z "$RAMDISK_ADDR" ] ; then
   exit 1
 fi
 #check the kernel image and the ramdisk img
-_VMLINUX=`file $KERNEL | awk '/ELF/ {print $0}'`
-if [ -z "$_VMLINUX" ]
-then
-  echo "ERROR: $KERNEL is not in elf format"
-  exit 1
-fi
-_RAMDISK=`file $RAMDISK_FILE | awk '/compressed data/ {print $0}'`
-if [ -z "$_RAMDISK" ]
-then
-  echo "ERROR: $RAMDISK_FILE is not a compressed image"
-  exit 1
-fi
+#_VMLINUX=`file $KERNEL | awk '/ELF/ {print $0}'`
+#if [ -z "$_VMLINUX" ]
+#then
+#  echo "ERROR: $KERNEL is not in elf format"
+#  exit 1
+#fi
+#_RAMDISK=`file $RAMDISK_FILE | awk '/compressed data/ {print $0}'`
+#if [ -z "$_RAMDISK" ]
+#then
+#  echo "ERROR: $RAMDISK_FILE is not a compressed image"
+#  exit 1
+#fi
 
 # start logging
 date >> $LOGFILE

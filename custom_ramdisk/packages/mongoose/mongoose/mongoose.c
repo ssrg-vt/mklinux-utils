@@ -1483,7 +1483,7 @@ static int64_t push(FILE *fp, SOCKET sock, SSL *ssl, const char *buf,
 
   sent = 0;
   while (sent < len) {
-    syscall(321, 10);
+    //syscall(321, 10);
 
     // How many bytes we send in this iteration
     k = len - sent > INT_MAX ? INT_MAX : (int) (len - sent);
@@ -1548,7 +1548,7 @@ static int wait_until_socket_is_readable(struct mg_connection *conn) {
 // Return negative value on error, or number of bytes read on success.
 static int pull(FILE *fp, struct mg_connection *conn, char *buf, int len) {
   int nread;
-  syscall(321, 30);
+  //syscall(321, 30);
 
   if (fp != NULL) {
     // Use read() instead of fread(), because if we're reading from the CGI
@@ -2844,7 +2844,7 @@ static void handle_file_request(struct mg_connection *conn, const char *path,
   conn->status_code = 200;
   range[0] = '\0';
 
-  syscall(321, 14);
+  //syscall(321, 14);
   if (!mg_fopen(conn, path, "rb", filep)) {
     send_http_error(conn, 500, http_500_error,
         "fopen(%s): %s", path, strerror(ERRNO));
@@ -4733,7 +4733,7 @@ static void close_socket_gracefully(struct mg_connection *conn) {
 static void close_connection(struct mg_connection *conn) {
   conn->must_close = 1;
 
-  syscall(321, 20);
+  //syscall(321, 20);
   if (conn->ssl) {
     SSL_free(conn->ssl);
     conn->ssl = NULL;
@@ -4963,6 +4963,9 @@ static void *worker_thread(void *thread_func_param) {
   struct mg_context *ctx = thread_func_param;
   struct mg_connection *conn;
 
+  //syscall(319);
+  //syscall(320);
+
   conn = (struct mg_connection *) calloc(1, sizeof(*conn) + MAX_REQUEST_SIZE);
   if (conn == NULL) {
     cry(fc(ctx), "%s", "Cannot create new connection struct, OOM");
@@ -5097,20 +5100,19 @@ static void *master_thread(void *thread_func_param) {
 	ret= poll(pfd, ctx->num_listening_sockets, 200);
 	//printf("thread %d calling poll end\n", syscall(__NR_gettid));
 	syscall(320);
-
-	if (pollcnt == 30) {
+	pollcnt ++;
+	if (pollcnt == 100000) {
 		syscall(321, 9999999);
 	}
     if ( ret > 0) {
       for (i = 0; i < ctx->num_listening_sockets; i++) {
         if (ctx->stop_flag == 0 && pfd[i].revents == POLLIN) {
-          syscall(321, 35);
+          //syscall(321, 35);
 
 	killnumber++;
-	if (killnumber == 15) {
-		//syscall(318);
+	if (killnumber == 50000) {
+		syscall(318);
 	}
-		  pollcnt ++;
           accept_new_connection(&ctx->listening_sockets[i], ctx);
         }
       }
@@ -5132,7 +5134,7 @@ static void *master_thread(void *thread_func_param) {
   (void) pthread_mutex_lock(&ctx->mutex);
   syscall(320);
   while (ctx->num_threads > 0) {
-    syscall(321, 20);
+    //syscall(321, 20);
     syscall(319);
     (void) pthread_cond_wait(&ctx->cond, &ctx->mutex);
     syscall(320);
@@ -5189,7 +5191,7 @@ void mg_stop(struct mg_context *ctx) {
 
   // Wait until mg_fini() stops
   while (ctx->stop_flag != 2) {
-    syscall(321, 10);
+    //syscall(321, 10);
     (void) mg_sleep(10);
   }
   free_context(ctx);
