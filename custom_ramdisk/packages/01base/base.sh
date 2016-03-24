@@ -58,7 +58,7 @@ echo "${ldconfig_dirs//[[:blank:]]/}" >> "${image_root}/etc/ld.so.conf"
 
 copy_files() {
     # copy the following list of file from the current dir to ${image_root}/path_to_file
-    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/profile etc/nsswitch.conf"
+    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/profile etc/nsswitch.conf etc/group"
     local f src target dir
     for f in $files; do
         src="./"$(basename "$f")
