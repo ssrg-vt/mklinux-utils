@@ -41,12 +41,14 @@ void omp_set_num_threads(int num_threads)
 
 int omp_get_num_threads(void)
 {
-    return g_thread_numbers;
+//    return g_thread_numbers;
+	return bomp_num_threads; ///CHRIS
 }
 
 int omp_get_max_threads(void)
 {
-    return 1;
+//    return 1;
+	return bomp_num_threads; //CHRIS
 }
 
 int omp_get_thread_num(void)

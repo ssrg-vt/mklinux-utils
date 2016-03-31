@@ -94,6 +94,11 @@ static inline void bomp_barrier_wait(struct bomp_barrier *barrier)
 
         while (cycle == barrier->cycle) {
             waitcnt++;
+/*	    //CHRIS
+	    if(waitcnt > 10000000){
+		break;
+	    }
+	    //end CHRIS*/
         }
 
         if(waitcnt > 10000000) {

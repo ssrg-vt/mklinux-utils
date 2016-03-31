@@ -38,6 +38,7 @@
 
 void backend_set_numa(unsigned id)
 {
+#if 0
 #ifdef NUMA
     struct bitmask *bm = numa_allocate_cpumask();
     numa_bitmask_setbit(bm, id);
@@ -49,6 +50,7 @@ void backend_set_numa(unsigned id)
     CPU_SET(id, &cpu_mask);
     sched_setaffinity(0, sizeof(cpu_set_t), &cpu_mask);
 #endif
+#endif
 }
 
 void backend_run_func_on(int core_id, void* cfunc, void *arg)
@@ -56,7 +58,8 @@ void backend_run_func_on(int core_id, void* cfunc, void *arg)
     pthread_t pthread;
     int r = pthread_create(&pthread, NULL, cfunc, arg);
     if (r != 0) {
-        printf("pthread_create failed\n");
+        printf("pthread_create fa1iled\n");
+        //printf("%s: r NOT 0\n",__func__);
     }
 }
 
@@ -98,7 +101,8 @@ void backend_init(void)
 
     int r = pthread_key_create(&pthread_key, NULL);
     if (r != 0) {
-        printf("pthread_key_create failed\n");
+        printf("pthread_key_create fa2iled\n");
+        //printf("%s:r PO PO 0\n",__func__);
     }
    printf("backend_init success!\n");
 }
