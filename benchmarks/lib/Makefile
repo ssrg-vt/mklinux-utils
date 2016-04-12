@@ -29,7 +29,7 @@ all: libbomp_x86.a libbomp_aRM.a
 libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 #	$(AR) -q $@ $^
 
-libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o
+libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o kmp.o
 	$(AR) -q $@ $^
 
 linux_backend_arm.o: linux_backend.c
@@ -47,7 +47,10 @@ processing_arm.o: processing.c
 self_info_arm.o: self_info.c
 	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c self_info.c -o $@
 
-libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+kmp_arm.o: kmp.c
+	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c kmp.c -o $@
+
+libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
 	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
 
 tests: cthread.o

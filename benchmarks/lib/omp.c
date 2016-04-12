@@ -12,6 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <time.h>
+
 #include "libbomp.h"
 #include "omp.h"
 #include "backend.h"
@@ -20,13 +22,15 @@ unsigned bomp_num_threads = 1;
 bool bomp_dynamic_behaviour = false;
 bool bomp_nested_behaviour = false;
 
-void bomp_custom_init(void)
+void __attribute__((constructor))
+bomp_custom_init(void)
 {
     parallel_init();
     backend_init();
 }
 
-void bomp_custom_exit(void)
+void __attribute__((destructor))
+bomp_custom_exit(void)
 {
     backend_exit();
 }
@@ -101,4 +105,11 @@ void omp_set_nested(int nested)
 int omp_get_nested(void)
 {
     return bomp_dynamic_behaviour;
+}
+
+double omp_get_wtime(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + ((double)ts.tv_nsec / 1000000000.0);
 }
