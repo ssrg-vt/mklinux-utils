@@ -51,7 +51,7 @@ kmp_arm.o: kmp.c
 	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c kmp.c -o $@
 
 libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
-	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o
+	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
 
 tests: cthread.o
 	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread tst-cthread.c $^
