@@ -29,7 +29,7 @@ bomp_custom_init(void)
     backend_init();
 }
 
-void __attribute__((destructor))
+void /*__attribute__((destructor))*/
 bomp_custom_exit(void)
 {
     backend_exit();
