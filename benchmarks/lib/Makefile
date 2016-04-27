@@ -8,16 +8,17 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-# original
-CFLAGS = -DPOSIX -g -m64 -fno-stack-protector -ffunction-sections -fdata-sections -D__X86
+CC = clang
+CFLAGS = -O0 -g -gdwarf-aranges -DPOSIX -fno-stack-protector -ffunction-sections -fdata-sections
 
-COMMON_CFLAGS=-fno-stack-protector -ffunction-sections -fdata-sections
-CFLAGS_X86 = -DPOSIX -g -m64 -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/musl-1.1.10/include -D__X86
-CFLAGS_AARCH64 = -DPOSIX -g -I/mnt/drv2/home/bielsk1/mklinux-het-compiler/musl_libc/install/aarch64-musl/include -D__AARCH64
-OTHERS = -O2
+OPT = opt
+OPT_FLAGS = -load /usr/local/popcorn/lib/libStackInfo.so -stack-info
 
-CC_AARCH64 = aarch64-linux-gnu-gcc
+# x86-64
+CFLAGS_X86_64 = $(CFLAGS) -target x86_64-linux-gnu -m64 -D__X86
 
+# aarch64
+CFLAGS_AARCH64 = $(CFLAGS) -target aarch64-linux-gnu -isystem /usr/local/popcorn/aarch64/include -D__AARCH64
 
 #all: libbomp.a libpomp.a
 all: libbomp_x86.a libbomp_aRM.a
@@ -29,29 +30,23 @@ all: libbomp_x86.a libbomp_aRM.a
 libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 #	$(AR) -q $@ $^
 
+%.o: %.c
+	$(CC) $(CFLAGS_X86_64) -c -emit-llvm -o $@.bc $<
+	$(OPT) $(OPT_FLAGS) $@.bc -o $@.bc
+	$(CC) $(CFLAGS_X86_64) -c -o $@ $@.bc >> libbomp_stack_x86_64.txt
+	rm $@.bc
+
 libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o kmp.o
 	$(AR) -q $@ $^
 
-linux_backend_arm.o: linux_backend.c
-	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c linux_backend.c -o $@ 
-
-omp_arm.o: omp.c
-	$(CC_AARCH64) $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -o $@ -c omp.c
-
-parallel_arm.o: parallel.c
-	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c parallel.c -o $@
-
-processing_arm.o: processing.c
-	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c processing.c -o $@
-
-self_info_arm.o: self_info.c
-	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c self_info.c -o $@
-
-kmp_arm.o: kmp.c
-	aarch64-linux-gnu-gcc $(COMMON_CFLAGS) $(CFLAGS_AARCH64) -c kmp.c -o $@
+%_arm.o: %.c
+	$(CC) $(CFLAGS_AARCH64) -c -emit-llvm -o $@.bc $<
+	$(OPT) $(OPT_FLAGS) $@.bc -o $@.bc
+	$(CC) $(CFLAGS_AARCH64) -c -o $@ $@.bc >> libbomp_stack_aarch64.txt
+	rm $@.bc
 
 libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
-	aarch64-linux-gnu-ar -q $@ linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
+	aarch64-linux-gnu-ar -q $@ $^
 
 tests: cthread.o
 	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread tst-cthread.c $^

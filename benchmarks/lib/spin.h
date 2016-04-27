@@ -17,7 +17,7 @@
 
 /* #include <barrelfish/barrelfish.h> */
 /* #include <string.h> */
-#include <omp.h>
+#include "omp.h"
 
 /** \brief spinlock */
 // why 64-bit? this means we need an extra prefix on the lock ops... -AB
