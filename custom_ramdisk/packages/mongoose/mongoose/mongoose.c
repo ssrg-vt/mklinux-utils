@@ -5105,9 +5105,9 @@ static void *master_thread(void *thread_func_param) {
       for (i = 0; i < ctx->num_listening_sockets; i++) {
         if (ctx->stop_flag == 0 && pfd[i].revents == POLLIN) {
           killcnt ++;
-		if (killcnt == 50000) {^M
-                //syscall(318);^M
-        }^
+		if (killcnt == 50000) {
+                //syscall(318);
+        }
           accept_new_connection(&ctx->listening_sockets[i], ctx);
         }
       }
