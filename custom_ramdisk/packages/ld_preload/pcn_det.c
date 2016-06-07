@@ -14,8 +14,8 @@
 #include <dlfcn.h>
 
 #define PTHREAD_PATH "/lib/x86_64-linux-gnu/libpthread.so.0"
-#define MTX_LOCK
-#define MTX_UNLOCK
+//#define MTX_LOCK
+//#define MTX_UNLOCK
 //#define DEBUG
 #define SCHED_REP
 #ifdef DEBUG
@@ -194,15 +194,17 @@ int pthread_cond_signal(pthread_cond_t *cond)
         ++cond->__data.__wakeup_seq;
         ++cond->__data.__futex;
 
-        if (!__builtin_expect (lll_futex_wake_unlock (&cond->__data.__futex, 1, 1, &cond->__data.__lock, pshared), 0)) {
-            syscall(320);
-            return 0;
-        }
+		/*
+         *if (!__builtin_expect (lll_futex_wake_unlock (&cond->__data.__futex, 1, 1, &cond->__data.__lock, pshared), 0)) {
+         *    syscall(320);
+         *    return 0;
+         *}
+		 */
 
         lll_futex_wake(&cond->__data.__futex, 1, pshared);
     }
-
     syscall(320);
+
     lll_unlock(cond->__data.__lock, pshared);
 
     return 0;
@@ -218,8 +220,10 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
     if (!handle) {
         printf("cannot open!\n");
     }
+#ifdef MTX_LOCK
     if (!pthread_mutex_lock_real)
         pthread_mutex_lock_real = dlsym(handle, "pthread_mutex_lock");
+#endif
 #ifdef MTX_UNLOCK
     if (!pthread_mutex_unlock_real)
         pthread_mutex_unlock_real = dlsym(handle, "pthread_mutex_unlock");
@@ -286,7 +290,11 @@ bc_out:
     lll_unlock(cond->__data.__lock, pshared);
 
     syscall(319);
+#ifdef MTX_LOCK
     err = pthread_mutex_lock_real(mutex);
+#else
+    err = pthread_mutex_lock(mutex);
+#endif
     syscall(320);
     return err;
 }
@@ -301,8 +309,11 @@ int pthread_cond_timedwait (cond, mutex, abstime)
 
   /* Make sure we are alone.  */
   syscall(319);
-  PRINT("[%d] timed_cond_wait %llx\n", syscall(186), &cond->__data.__lock);
   lll_lock (cond->__data.__lock, pshared);
+  PRINT("[%d] timed_cond_wait in %d, %d, %llx\n", syscall(186), 
+		  cond->__data.__wakeup_seq,
+		  cond->__data.__futex,
+		  &cond->__data.__lock);
   syscall(320);
 
   /* Now we can release the mutex.  */
@@ -384,12 +395,12 @@ int pthread_cond_timedwait (cond, mutex, abstime)
       syscall(321, 0);
       err = lll_futex_timed_wait (&cond->__data.__futex,
           futex_val, &rt, pshared);
-      PRINT("[%d] fxtret %d %llx\n", syscall(186), err, &cond->__data.__lock);
     }
 
       /* We are going to look at shared data again, so get the lock.  */
       syscall(319);
       lll_lock (cond->__data.__lock, pshared);
+      PRINT("[%d] fxtret %d %llx\n", syscall(186), err, &cond->__data.__lock);
       syscall(320);
 
       /* If a broadcast happened, we are done.  */
@@ -409,6 +420,10 @@ int pthread_cond_timedwait (cond, mutex, abstime)
     syscall(319);
 	  ++cond->__data.__wakeup_seq;
 	  ++cond->__data.__futex;
+      PRINT("[%d] timed_cond_wait out %d, %d, %llx\n", syscall(186), 
+			  cond->__data.__wakeup_seq,
+			  cond->__data.__futex,
+			  &cond->__data.__lock);
     syscall(320);
 
 	  /* The error value.  */
@@ -427,10 +442,10 @@ int pthread_cond_timedwait (cond, mutex, abstime)
 
   syscall(319);
   err = pthread_mutex_lock_real(mutex);
+  PRINT("[%d] fxt err %d\n", syscall(186), err);
   syscall(320);
 
   int ret = err ? err : result;
-  PRINT("[%d] fxt err %d\n", ret);
   return ret;
 }
 #endif
@@ -464,7 +479,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
         pthread_mutex_lock_real = dlsym(handle, "pthread_mutex_lock");
 
     syscall(319);
-    PRINT("mtx %llx\n", mutex);
+    PRINT("[%d] mtx %llx\n", syscall(186), mutex);
     ret = pthread_mutex_lock_real(mutex);
     syscall(320);
 
@@ -482,7 +497,7 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex)
         pthread_mutex_trylock_real = dlsym(handle, "pthread_mutex_trylock");
 
     syscall(319);
-    PRINT("try mtx %llx\n", mutex);
+    PRINT("[%d] try mtx %llx\n", syscall(186), mutex);
     ret = pthread_mutex_trylock_real(mutex);
     syscall(320);
 
