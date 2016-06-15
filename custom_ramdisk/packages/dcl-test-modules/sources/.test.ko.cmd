@@ -1,0 +1,1 @@
+cmd_/home/pierre/Desktop/qemu-linux-makefile/module/test.ko := ld -r -m elf_x86_64 -T /home/pierre/Desktop/qemu-linux-makefile/buildroot/output/build/linux-3.2.14/scripts/module-common.lds --build-id  -o /home/pierre/Desktop/qemu-linux-makefile/module/test.ko /home/pierre/Desktop/qemu-linux-makefile/module/test.o /home/pierre/Desktop/qemu-linux-makefile/module/test.mod.o
