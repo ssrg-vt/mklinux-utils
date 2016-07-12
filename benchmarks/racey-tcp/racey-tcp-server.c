@@ -23,25 +23,28 @@ int client_fds[WORKER_NUM];
 int client_idx;
 int output_fd;
 int barrier;
+int connection_before_error;
+int fault_count = 0;
 pthread_mutex_t client_fds_lock;
 pthread_mutex_t file_lock;
 
 void* racey_worker(void* data)
 {
 	int fd;
-	int fault_count = 0;
 	int n = 0;
 	char buf[256];
+	int tid = *(int *)data;
 
 	while (barrier == 0) {}
 
+	syscall(321, 1);
 	for (;;) {
 		/* Waiting for an availiable socket */
 		for (;;) {
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
 			syscall(320);
-			if ( client_idx>0 && client_fds[client_idx] > 0) {
+			if ( client_idx>=0 && client_fds[client_idx] > 0) {
 				fd = client_fds[client_idx];
 				client_fds[client_idx] = -1;
 				client_idx --;
@@ -50,21 +53,25 @@ void* racey_worker(void* data)
 				break;
 			}
 			pthread_mutex_unlock(&client_fds_lock);
-			//syscall(320);
 		}
 
-		if (fault_count == 5) {
-			syscall(318);
-		}
-		/* Write the shit to the file */
 		do {
-			syscall(319);
 			n = read(fd, buf, sizeof(buf));
-			syscall(320);
+			//n = recv(fd, buf + 10, sizeof(buf), 0);
+			syscall(321, 1);
+		
+			if(fault_count==connection_before_error){
+				//syscall(318);
+			}
+
+			//n = recv(fd, buf + 10, sizeof(buf), 0);
+			//syscall(320);
+			sprintf(buf, "\n%d, %d", tid, fd);
 			syscall(319);
 			write(output_fd, buf, n);
 			syscall(320);
 		} while (n > 0);
+
 		syscall(319);
 		close(fd);
 		syscall(320);
@@ -74,22 +81,25 @@ void* racey_worker(void* data)
 int main(int argc, char **argv)
 {
 	struct sockaddr_in serv_addr;    /* Local address */
-    struct sockaddr_in client_addr;  /* Client address */
+	struct sockaddr_in client_addr;  /* Client address */
 	unsigned short server_port;      /* Server port */
 	unsigned int client_len;         /* Length of client address data structure */
 	int server_fd;
 	int client_fd;
 	int i;
+	int tinfo[WORKER_NUM];
 	pthread_t threads[WORKER_NUM];
 	pthread_attr_t attr;
 
-	if (argc != 2)     /* Test for correct number of arguments */
+	if (argc != 3)     /* Test for correct number of arguments */
 	{
-		fprintf(stderr, "Usage:  %s <Server Port>\n", argv[0]);
+		fprintf(stderr, "Usage:  %s <Server Port> <Connection_before_error>\n", argv[0]);
 		exit(1);
 	}
 
 	server_port = atoi(argv[1]);  /* First arg:  local port */
+
+	connection_before_error=  atoi(argv[2]);
 
 	pthread_mutex_init(&client_fds_lock, NULL);
 	pthread_mutex_init(&file_lock, NULL);
@@ -121,7 +131,8 @@ int main(int argc, char **argv)
 	barrier = 0;
 	for (i = 0; i < WORKER_NUM; i++) {
 		client_fds[i] = -1;
-		if (pthread_create(&threads[i], &attr, racey_worker, NULL) < 0) {
+		tinfo[i] = i;
+		if (pthread_create(&threads[i], &attr, racey_worker, &tinfo[i]) < 0) {
 			return 1;
 		}
 	}
@@ -132,6 +143,7 @@ int main(int argc, char **argv)
 	}
 
 	for (;;) {
+		syscall(321, 0);
 		/* Accept whatever is coming to me */
 		client_len = sizeof(client_addr);
 		syscall(319);
@@ -142,7 +154,7 @@ int main(int argc, char **argv)
 		}
 		syscall(320);
 		//syscall(320);
-
+		syscall(321, 0);
 		while (1) {
 			syscall(319);
 			pthread_mutex_lock(&client_fds_lock);
@@ -156,7 +168,6 @@ int main(int argc, char **argv)
 				break;
 			}
 			pthread_mutex_unlock(&client_fds_lock);
-			//syscall(320);
 		}
 	}
 }

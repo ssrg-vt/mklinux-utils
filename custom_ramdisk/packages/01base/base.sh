@@ -22,7 +22,7 @@ readonly tunnel="$mklinux_utils/tunnel"
 ( . "${scripts_dir}/copy_exec.sh" "$tunnel" "$image_root" "/bin/tunnel" )
 
 # set up udhcpc
-readonly udhcpc_default_script="/etc/udhcpc/default.script"
+readonly udhcpc_default_script="/usr/share/udhcpc/default.script"
 if [ ! -f "$udhcpc_default_script" ]; then
     echo >&2 "error: $udhcpc_default_script not found. Aborting"
     exit 1
@@ -58,7 +58,7 @@ echo "${ldconfig_dirs//[[:blank:]]/}" >> "${image_root}/etc/ld.so.conf"
 
 copy_files() {
     # copy the following list of file from the current dir to ${image_root}/path_to_file
-    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/profile etc/nsswitch.conf"
+    local readonly files="etc/inittab etc/init.d/rc.S /bin/tunnelize.sh /bin/heartbeat etc/shadow etc/passwd etc/profile etc/nsswitch.conf etc/group"
     local f src target dir
     for f in $files; do
         src="./"$(basename "$f")
@@ -71,5 +71,9 @@ copy_files() {
 
 }
 copy_files
+
+# update the IP address in rc.S
+readonly ip=$(ifconfig | awk '/eth0/ { getline; print $0 }' | awk '{print $2}' | cut -d : -f 2)
+sed -i.bak "s/MYIP/${ip}/g" "${image_root}/etc/init.d/rc.S"
 
 rm "./profile"

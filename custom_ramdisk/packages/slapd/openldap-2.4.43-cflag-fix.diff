@@ -1,0 +1,36 @@
+diff -dur openldap-2.4.43/build/top.mk openldap-2.4.43-fixed/build/top.mk
+--- openldap-2.4.43/build/top.mk	2015-11-30 12:02:00.000000000 -0500
++++ openldap-2.4.43-fixed/build/top.mk	2016-01-12 16:01:28.853677313 -0500
+@@ -107,19 +107,19 @@
+ LTSTATIC = @LTSTATIC@
+ 
+ LTLINK   = $(LIBTOOL) --mode=link \
+-	$(CC) $(LTSTATIC) $(LT_CFLAGS) $(LDFLAGS) $(LTFLAGS)
++	$(CC) $(LTSTATIC) $(LDFLAGS) $(LTFLAGS)
+ 
+ LTCOMPILE_LIB = $(LIBTOOL) $(LTONLY_LIB) --mode=compile \
+ 	$(CC) $(LT_CFLAGS) $(LT_CPPFLAGS) $(LIB_DEFS) -c
+ 
+ LTLINK_LIB = $(LIBTOOL) $(LTONLY_LIB) --mode=link \
+-	$(CC) $(LT_CFLAGS) $(LDFLAGS) $(LTFLAGS_LIB)
++	$(CC) $(LDFLAGS) $(LTFLAGS_LIB)
+ 
+ LTCOMPILE_MOD = $(LIBTOOL) $(LTONLY_MOD) --mode=compile \
+ 	$(CC) $(LT_CFLAGS) $(LT_CPPFLAGS) $(MOD_DEFS) -c
+ 
+ LTLINK_MOD = $(LIBTOOL) $(LTONLY_MOD) --mode=link \
+-	$(CC) $(LT_CFLAGS) $(LDFLAGS) $(LTFLAGS_MOD)
++	$(CC) $(LDFLAGS) $(LTFLAGS_MOD)
+ 
+ LTINSTALL = $(LIBTOOL) --mode=install $(INSTALL) 
+ LTFINISH = $(LIBTOOL) --mode=finish
+diff -dur openldap-2.4.43/configure openldap-2.4.43-fixed/configure
+--- openldap-2.4.43/configure	2015-11-30 12:02:00.000000000 -0500
++++ openldap-2.4.43-fixed/configure	2016-01-12 15:57:17.869674219 -0500
+@@ -2802,7 +2802,7 @@
+ ac_ext=c
+ ac_cpp='$CPP $CPPFLAGS'
+ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
++ac_link='$CC -o conftest$ac_exeext $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ ac_compiler_gnu=$ac_cv_c_compiler_gnu

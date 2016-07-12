@@ -1,1 +1,0 @@
-./spmv -i ./Dubcova3.mtx.bin,./vector.bin -o Dubcova3.mtx.out -n NUM_THREADS

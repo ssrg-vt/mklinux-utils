@@ -1,0 +1,10 @@
+ ./autogen.sh
+    make dist
+    make
+    make install
+
+./configure --prefix=/usr/local
+make
+make install
+
+ export JEMALLOC_PATH=/usr/local

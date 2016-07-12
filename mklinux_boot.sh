@@ -77,18 +77,18 @@ if [ -z "$RAMDISK_ADDR" ] ; then
   exit 1
 fi
 #check the kernel image and the ramdisk img
-_VMLINUX=`file $KERNEL | awk '/ELF/ {print $0}'`
-if [ -z "$_VMLINUX" ]
-then
-  echo "ERROR: $KERNEL is not in elf format"
-  exit 1
-fi
-_RAMDISK=`file $RAMDISK_FILE | awk '/compressed data/ {print $0}'`
-if [ -z "$_RAMDISK" ]
-then
-  echo "ERROR: $RAMDISK_FILE is not a compressed image"
-  exit 1
-fi
+#_VMLINUX=`file $KERNEL | awk '/ELF/ {print $0}'`
+#if [ -z "$_VMLINUX" ]
+#then
+#  echo "ERROR: $KERNEL is not in elf format"
+#  exit 1
+#fi
+#_RAMDISK=`file $RAMDISK_FILE | awk '/compressed data/ {print $0}'`
+#if [ -z "$_RAMDISK" ]
+#then
+#  echo "ERROR: $RAMDISK_FILE is not a compressed image"
+#  exit 1
+#fi
 
 # start logging
 date >> $LOGFILE
@@ -124,7 +124,10 @@ echo "rd_cmdline" >> $LOGFILE
 echo "$_CMDLINE" >> $LOGFILE
 
 echo "MKLINUX: loading $KERNEL at address $BOOT_ADDR"
-RESULT=`kexec -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
+
+KEXEC="../mklinux-kexec/build/sbin/kexec"
+
+RESULT=`$KEXEC -d -a $BOOT_ADDR -l $KERNEL -t elf-x86_64 --args-none 2>&1`
 if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (loading kernel into memory):"
@@ -135,7 +138,7 @@ fi
 echo "$RESULT" >> $LOGFILE
 
 echo "MKLINUX: booting kernel on CPU $CPU"
-RESULT=`kexec -d -a $BOOT_ADDR -b $CPU 2>&1`
+RESULT=`$KEXEC -d -a $BOOT_ADDR -b $CPU 2>&1`
 if [ $? -ne 0 ]
 then
   echo "ERROR TRACE: kexec output (starting a secondary kernel):"

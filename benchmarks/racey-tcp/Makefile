@@ -6,7 +6,7 @@
 
 LDFLAGS = -lpthread
 CFLAGS = -static
-TARGETS = racey-tcp-client racey-tcp-server
+TARGETS = racey-tcp-client racey-tcp-server racey-tcp-server-epoll
 
 all: $(TARGETS)
 
@@ -15,6 +15,9 @@ racey-tcp-client:
 
 racey-tcp-server:
 	gcc $(CFLAGS) -o $@ racey-tcp-server.c $(LDFLAGS)
+
+racey-tcp-server-epoll:
+	gcc $(CFLAGS) -o $@ racey-tcp-server-epoll.c $(LDFLAGS)
 
 clean:
 	rm -rf $(TARGETS)

@@ -10,17 +10,23 @@
 
 #define MAXPENDING 5    /* Maximum outstanding connection requests */
 #define __NR_ft_crash_kernel 318
-#define RCVBUFSIZE 200
+#define RCVBUFSIZE (4*1024)
 
 FILE *output;
 
 void HandleTCPClient(int clntSocket)
 {
-    char echoBuffer[RCVBUFSIZE];        /* Buffer for echo string */
+    char *echoBuffer;        /* Buffer for echo string */
     int recvMsgSize;
     int file_size;
     int bytes_recv=0;
-    int write_to;
+    //int write_to;
+
+    echoBuffer= malloc(RCVBUFSIZE* sizeof(char));
+    if(!echoBuffer){
+	fprintf(output,"impossible to malloc\n");
+	exit(1);
+    }
 
     fprintf(output,"starting\n");   
     fflush(output);
@@ -35,11 +41,11 @@ void HandleTCPClient(int clntSocket)
     fprintf(output,"size file: %i\n", file_size);
     fflush(output);
 	
-    write_to= open("received_from_client.txt", O_WRONLY | O_CREAT, 0777);
+    /*write_to= open("received_from_client.txt", O_WRONLY | O_CREAT, 0777);
     if(write_to==-1){
         fprintf(stderr, "Impossible to open file\n");
         exit(1);
-    }
+    }*/
     
 
     do{
@@ -49,11 +55,11 @@ void HandleTCPClient(int clntSocket)
         		exit(0);
     		}
 
-		if(write(write_to, echoBuffer, recvMsgSize) != recvMsgSize){
+		/*if(write(write_to, echoBuffer, recvMsgSize) != recvMsgSize){
 			fprintf(output,"write() failed\n");
                         exit(0);
 
-		}
+		}*/
 
 		bytes_recv+= recvMsgSize;
 
@@ -62,16 +68,18 @@ void HandleTCPClient(int clntSocket)
  
     }while (recvMsgSize > 0);
         
-    close(write_to);
+    //close(write_to);
 
-    sprintf(echoBuffer,"%s","done");
+    /*sprintf(echoBuffer,"%s","done");
     if (send(clntSocket, echoBuffer, sizeof("done"), 0) < 0){
     	fprintf(output,"send() failed\n");  	
 	exit(0);
-    }
+    }*/
 
-    fprintf(output,"ending\n");
+    fprintf(output,"ending copied %d bytes\n", bytes_recv);
     fflush(output);
+
+    free(echoBuffer);
 
     close(clntSocket);    /* Close client socket */
 }   

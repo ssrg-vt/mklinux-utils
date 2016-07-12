@@ -11,10 +11,10 @@ isndigit ()
   esac
 }
 
+# what does this do?
 numformat ()
 {
-  NUMFORMAT_RET=`echo $1 | awk '{ if ($1 < 1024) printf("%d\n", $1); else if ($1 < (1024*1024)) printf("%dk\n", $1/1024); else if ($1 < (1024*1024*1024)) printf("%dM\n", $1/(1024*1024)); else printf("%dG\n", $1/(1024*1024*1024)); }'`
-  return 0;
+  echo $(echo $1 | awk '{ if ($1 < 1024) printf("%d\n", $1); else if ($1 < (1024*1024)) printf("%dk\n", $1/1024); else if ($1 < (1024*1024*1024)) printf("%dM\n", $1/(1024*1024)); else printf("%dG\n", $1/(1024*1024*1024)); }')
 }
 
 #configuration params - console
@@ -30,7 +30,7 @@ ARG_IRQ="acpi_irq_nobalance no_ipi_broadcast=1 lapic_timer=$LOG_LAPICTIMER"
 _ARG_PCI=`./create_lspci.sh`
 if [ $? -ne 0 ]
 then
-  echo "$_ARG_PCI"
+  echo "./create_lspci.sh returned non-zero code and echoed $_ARG_PCI"
   exit 1
 fi
 ARG_PCI="pci_dev_flags=$_ARG_PCI"
@@ -50,15 +50,13 @@ then
   exit 1
 fi
 LOW_ADDRESS=65536
-numformat $LOW_ADDRESS
-LOW_ADDRESS_VAL=$NUMFORMAT_RET
+LOW_ADDRESS_VAL="$(numformat $LOW_ADDRESS)"
 if [ $LOW_ADDRESS -ge $TRAMPOLINE ]
 then
   echo "error $LOW_ADDRESS > $TRAMPOLINE"
   exit 1
 fi
-numformat `expr $TRAMPOLINE - $LOW_ADDRESS`
-DISALLOWED_RANGE=$NUMFORMAT_RET
+DISALLOWED_RANGE="$(numformat $(expr $TRAMPOLINE - $LOW_ADDRESS))"
 ARG_MEM="memmap=$DISALLOWED_RANGE\$$LOW_ADDRESS_VAL"
 
 #configuration params - others
@@ -78,8 +76,8 @@ if isndigit $1
 then
   exit $E_BADARGS
 fi
-#echo SEARCHING FOR $1
-RET=`./mpart > mpart_map`
+# is the file mpart_map needed?
+./mpart > mpart_map
 ARG_PART=`cat mpart_map | grep "present_mask=$1[ -]"`
 if [ $? -ne 0 ]
 then

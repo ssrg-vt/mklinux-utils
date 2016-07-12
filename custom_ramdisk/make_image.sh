@@ -12,7 +12,7 @@ set -eu -o pipefail
 
 trap 'fail "caught signal"' HUP KILL QUIT
 
-readonly verbose="y"
+readonly verbose="n"
 
 if [ $# -ne 1 ]; then
     echo "ERROR: mklinux_utils_dir not given. " >&2
