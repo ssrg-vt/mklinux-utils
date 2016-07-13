@@ -13,7 +13,7 @@
  */
 
 #include "libbomp.h"
-#include "popcorn_threadpool.h"
+#include "backend.h"
 static int count = 0;
 volatile unsigned g_thread_numbers = 1;
 static struct bomp_thread_local_data **g_array_thread_local_data;
@@ -91,7 +91,7 @@ void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads)
         xdata->barrier = barrier;
 
     }*/
-        backend_run_func_on(i + THREAD_OFFSET, bomp_thread_fn, xdata);
+        backend_run_func_on(i + THREAD_OFFSET, fn, data);
 }
 
 void bomp_end_processing(void)

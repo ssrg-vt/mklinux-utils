@@ -4,22 +4,11 @@
 #define MAX_THREADS 24
 #define MAX_QUEUE 65536
 
-#ifndef NUMA
-# ifndef _GNU_SOURCE
-# define _GNU_SOURCE
-# endif
-#include <sched.h>
-#endif
-
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stddef.h>
 #include <stdio.h>
-
-#ifdef NUMA
-#include <numa.h>
-#endif
 
 #include <assert.h>
 
@@ -76,20 +65,5 @@ int threadpool_free(threadpool_t * pool);
 void *threadpool_run(void *threadpool);
 /* Get current # of threads spawned within pool */
 int threadpool_getNumThreads(threadpool_t *pool);
-
-/*ADDED LINUX BACKEND*/
-typedef int (*bomp_thread_func_t)(void *);
-
-void backend_set_numa(unsigned id);
-void backend_run_func_on(int core_id, void* cfunc, void *arg);
-void* backend_get_tls(void);
-void backend_set_tls(void *data);
-void* backend_get_thread(void);
-void backend_init(void);
-void backend_exit();
-void backend_thread_exit(void);
-struct thread *backend_thread_create_varstack(bomp_thread_func_t start_func,
-                                              void *arg, size_t stacksize);
-/*END LINUX BACKEND */
 
 #endif /*POPCORN_THREADPOOL_H*/

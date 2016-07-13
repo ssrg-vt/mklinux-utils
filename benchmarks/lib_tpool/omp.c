@@ -14,7 +14,7 @@
 
 #include <time.h>
 
-#include "popcorn_threadpool.c"
+//#include "popcorn_threadipool.c"
 #include "libbomp.h"
 #include "omp.h"
 
@@ -40,7 +40,7 @@ void omp_set_num_threads(int num_threads){
     bomp_num_threads = num_threads;
     //	g_thread_numbers = num_fthreads; //chris
   }
-
+/*
   //Need to grab current amount of threads
   int numThreadsNow = threadpool_getNumThreads(pool);
   //Compare to new number
@@ -60,6 +60,7 @@ void omp_set_num_threads(int num_threads){
 	pool->started++;
     }
   }//end if
+*/
 }//END omp_set_num_threads
 
 int omp_get_num_threads(void)

@@ -25,8 +25,7 @@ all: libbomp_x86.a libbomp_aRM.a
 	$(OPT) $(OPT_FLAGS) $@.bc -o $@.bc
 	$(CC) $(CFLAGS_X86_64) -c -o $@ $@.bc >> libbomp_stack_x86_64.txt
 	#rm $@.bc
-
-libbomp_x86.a: popcorn_threadpool.o omp.o parallel.o processing.o self_info.o kmp.o
+libbomp_x86.a: popcorn_threadpool.o linux_backend.o omp.o parallel.o processing.o kmp.o self_info.o
 	$(AR) -q $@ $^
 
 %_arm.o: %.c
@@ -35,7 +34,7 @@ libbomp_x86.a: popcorn_threadpool.o omp.o parallel.o processing.o self_info.o km
 	$(CC) $(CFLAGS_AARCH64) -c -o $@ $@.bc >> libbomp_stack_aarch64.txt
 	rm $@.bc
 
-libbomp_aRM.a: popcorn_threadpool_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
+libbomp_aRM.a: popcorn_threadpool_arm.o linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
 	aarch64-linux-gnu-ar -q $@ $^
 
 clean:

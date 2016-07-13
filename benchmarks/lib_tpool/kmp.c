@@ -17,7 +17,7 @@
 
 #include <assert.h>
 #include "libbomp.h"
-#include "popcorn_threadpool.h"
+#include "backend.h"
 #include "kmp.h"
 
 /* Enable debugging information */
@@ -359,7 +359,7 @@ void __kmpc_barrier(ident_t *loc, int32_t global_tid)
 {
   DEBUG("__kmpc_barrier: %s %d\n", loc->psource, global_tid);
 
-  GOMP_barrier();
+//  GOMP_barrier();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -411,8 +411,8 @@ void __kmpc_end_reduce(ident_t *loc,
 {
   DEBUG("__kmpc_reduce_nowait: %s %d %p\n", loc->psource, global_tid, lck);
 
-  GOMP_critical_end();
-  GOMP_barrier();
+//  GOMP_critical_end();
+ // GOMP_barrier();
 }
 
 /*

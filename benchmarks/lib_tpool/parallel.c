@@ -82,7 +82,7 @@ void GOMP_barrier(void)
 {
     struct bomp_thread_local_data *th_local_data = backend_get_tls();
     assert(th_local_data != NULL);
-    bomp_barrier_wait(th_local_data->work->barrier);
+//    bomp_barrier_wait(th_local_data->work->barrier);
 }
 
 static bomp_lock_t atomic_lock;
