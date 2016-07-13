@@ -97,7 +97,7 @@ void __kmpc_fork_call(ident_t *loc, int32_t argc, kmpc_micro microtask, ...)
   DEBUG("__kmp_fork_call: %s calling %p\n", loc->psource, microtask);
 
   /* Marshal data for spawned microtask */
-  va_start(vl, argc);
+  va_start(vl, microtask);
   if(argc > 1)
   {
     void **args = malloc(sizeof(void*) * argc);
@@ -234,6 +234,7 @@ int __kmpc_dispatch_next_4(ident_t *loc,
 {
   // TODO
   assert(false && "Dynamically-scheduled loops not implemented");
+  return 0;
 }
 
 void __kmpc_dispatch_fini_4(ident_t *loc, int32_t gtid)

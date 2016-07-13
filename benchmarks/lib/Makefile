@@ -39,14 +39,18 @@ libpomp.a: cthread.o popcorn_backend.o omp.o parallel.o processing.o self_info.o
 libbomp_x86.a: linux_backend.o omp.o parallel.o processing.o self_info.o kmp.o
 	$(AR) -q $@ $^
 
-%_arm.o: %.c
+%.dir:
+	mkdir -p $*
+	touch $@
+
+build_arm/%.o: %.c
 	$(CC) $(CFLAGS_AARCH64) -c -emit-llvm -o $@.bc $<
 	$(OPT) $(OPT_FLAGS) $@.bc -o $@.bc
 	$(CC) $(CFLAGS_AARCH64) -c -o $@ $@.bc >> libbomp_stack_aarch64.txt
 	rm $@.bc
 
-libbomp_aRM.a: linux_backend_arm.o omp_arm.o parallel_arm.o processing_arm.o self_info_arm.o kmp_arm.o
-	aarch64-linux-gnu-ar -q $@ $^
+libbomp_aRM.a: build_arm/.dir build_arm/linux_backend.o build_arm/omp.o build_arm/parallel.o build_arm/processing.o build_arm/self_info.o build_arm/kmp.o
+	aarch64-linux-gnu-ar -q $@ build_arm/linux_backend.o build_arm/omp.o build_arm/parallel.o build_arm/processing.o build_arm/self_info.o build_arm/kmp.o
 
 tests: cthread.o
 	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-cthread tst-cthread.c $^
@@ -58,4 +62,4 @@ tests: cthread.o
 	$(CC) $(COMMON_CFLAGS) $(CFLAGS) -o test-synchmalloc tst-synchmalloc.c $^
 
 clean:
-	rm -f *.o libbomp_aRM.a libbomp_x86.a libpomp.a test-*
+	rm -rf *.o libbomp_aRM.a libbomp_x86.a libpomp.a test-* build_arm
