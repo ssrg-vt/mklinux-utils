@@ -1,2 +1,5 @@
 # a newlinst separated list of packages not to install
 slapd
+ffserver
+nginx
+racey-tcp-webserver.ci

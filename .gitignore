@@ -8,3 +8,15 @@ set_boot_args
 shmtunnel
 tunnel
 vmlinux.elf
+dump_shdr
+getcpu
+heartbeat
+kcore
+ld_preload/pcn_det.so
+mklinux_boot.log
+mklinux_boot_1.log
+mpart_map
+popcorn.o
+rd_cmdline
+tunnel_shm
+wr_cmdline

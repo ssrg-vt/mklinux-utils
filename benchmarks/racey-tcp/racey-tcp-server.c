@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/syscall.h>
+#include <sys/ioctl.h>
 
 #define WORKER_NUM 5
 #define OUTPUT_FILE "./output.txt"
