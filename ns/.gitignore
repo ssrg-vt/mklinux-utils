@@ -1,3 +1,4 @@
 ns_child_exec
 ns_exec
 simple_init
+get_affinity

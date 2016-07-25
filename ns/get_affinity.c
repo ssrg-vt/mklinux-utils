@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
     CPU_ZERO(&cpu_mask);
     printf("sizeof cpu_set_t is %ld (bytes) %d (elems)\n", sizeof(cpu_set_t), CPU_SETSIZE);
 
-    ret = sched_getaffinity(NULL, sizeof(cpu_set_t), &cpu_mask);
+    ret = sched_getaffinity(0, sizeof(cpu_set_t), &cpu_mask);
     if (ret) {
 	perror("sched_getaffinity");
 	return ret;
